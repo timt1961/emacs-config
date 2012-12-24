@@ -1,0 +1,15 @@
+;; Object site-lisp/
+;; SEMANTICDB Tags save file
+(semanticdb-project-database-file "site-lisp/"
+  :tables (list 
+   (semanticdb-table "asml-keys.el"
+    :major-mode 'emacs-lisp-mode
+    :tags '(("top-of-screen" function nil nil [220 286]) ("bottom-of-screen" function nil nil [288 358]) ("justify-region" function nil nil [360 512]) ("previous-error" function nil nil [514 573]) ("global-set-key" code nil nil [575 613]) ("global-set-key" code nil nil [633 673]) ("global-set-key" code nil nil [733 773]) ("global-set-key" code nil nil [774 813]) ("global-set-key" code nil nil [814 854]) ("global-set-key" code nil nil [855 893]) ("global-set-key" code nil nil [913 948]) ("global-set-key" code nil nil [969 1002]) ("global-set-key" code nil nil [1022 1050]) ("global-set-key" code nil nil [1072 1104]) ("global-set-key" code nil nil [1155 1213]) ("global-set-key" code nil nil [1250 1290]) ("global-set-key" code nil nil [1333 1375]) ("global-set-key" code nil nil [1376 1422]) ("global-set-key" code nil nil [1423 1459]) ("global-set-key" code nil nil [1460 1499]) ("global-set-key" code nil nil [2853 2896]) ("global-set-key" code nil nil [2897 2938]) ("global-set-key" code nil nil [2939 2978]) ("global-set-key" code nil nil [2979 3024]) ("global-set-key" code nil nil [3035 3071]) ("global-set-key" code nil nil [3072 3118]) ("global-set-key" code nil nil [3119 3152]) ("global-set-key" code nil nil [3153 3190]) ("global-set-key" code nil nil [3201 3241]) ("global-set-key" code nil nil [3242 3278]) ("global-set-key" code nil nil [3279 3322]) ("global-set-key" code nil nil [3323 3362]) ("global-set-key" code nil nil [3405 3448]) ("global-set-key" code nil nil [3449 3477]) ("global-set-key" code nil nil [3478 3524]) ("global-set-key" code nil nil [3525 3566]) ("global-set-key" code nil nil [3596 3634]) ("global-set-key" code nil nil [3635 3674]) ("global-set-key" code nil nil [3819 3853]) ("global-set-key" code nil nil [3854 3886]))
+    :file "asml-keys.el"
+    :pointmax 3887
+    )
+   )
+  :file "semantic.cache"
+  :semantic-tag-version "2.0pre3"
+  :semanticdb-version "2.0pre3"
+  )

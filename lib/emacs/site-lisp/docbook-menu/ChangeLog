@@ -1,0 +1,75 @@
+2003-11-20  xmldoc  <xmldoc@sideshowbarker.net>
+
+	* NEWS, VERSION: bump up version, update NEWS file
+
+	* docbk-menu.el: minor doc additions
+
+2003-11-12  xmldoc  <xmldoc@sideshowbarker.net>
+
+	* NEWS: updated
+
+2003-11-10  xmldoc  <xmldoc@sideshowbarker.net>
+
+	* VERSION: bump up version
+
+	* docbk-menu.el, README: doc fixes (download URL and require
+	statement)
+
+	* doc/Makefile, doc/docbook-menu.xml: added install target and
+	updated download location
+
+2003-11-06  xmldoc  <xmldoc@sideshowbarker.net>
+
+	* Makefile: install (upload) target added
+
+2003-11-04  xmldoc  <xmldoc@sideshowbarker.net>
+
+	* Makefile: upload location vars, unsetting for now
+
+	* docbk-menu.el: path example in doc for xsl-docs-dir variable,
+	changed
+
+	* submenus/dbk-xsldoc.el, submenus/dbk-xslfo.el,
+	submenus/dbk-xslhtm.el, submenus/dbk-xsltcg.el, xsl/README,
+	xsl/make-dbxsl-tcg.xsl, xsl/make-docbook-elements-list.xsl,
+	xsl/make-docbook-xsl-params-list.xsl, xsl/make-tdg-menu.xsl:
+	New file.
+
+	* submenus/dbk-xsldoc.el, submenus/dbk-xslfo.el,
+	submenus/dbk-xslhtm.el, submenus/dbk-xsltcg.el, xsl/README,
+	xsl/make-dbxsl-tcg.xsl, xsl/make-docbook-elements-list.xsl,
+	xsl/make-docbook-xsl-params-list.xsl, xsl/make-tdg-menu.xsl:
+	initial import
+
+	* submenus/dbk-el-lg.el, submenus/dbk-faq.el, submenus/dbk-tdg.el,
+	submenus/dbk-wiki.el, submenus/dbk-xsldir.el: New file.
+
+	* submenus/dbk-el-lg.el, submenus/dbk-faq.el, submenus/dbk-tdg.el,
+	submenus/dbk-wiki.el, submenus/dbk-xsldir.el: initial import
+
+	* php/dir2lisp.php, submenus/dbk-el-az.el: New file.
+
+	* php/dir2lisp.php, submenus/dbk-el-az.el: initial import
+
+	* COPYING, Makefile, NEWS, README, TODO, VERSION,
+	doc/Makefile, doc/docbook-menu.xml, doc/html-common.xsl,
+	doc/images/docbook-menu-els-alpha.gif,
+	doc/images/docbook-menu-els-logic.gif,
+	doc/images/docbook-menu-faq.gif, doc/images/docbook-menu-tdg.gif,
+	doc/images/docbook-menu-xsl-fo.gif,
+	doc/images/docbook-menu-xsl-tcg.gif, doc/images/home.png,
+	doc/images/next.png, doc/images/prev.png, doc/images/up.png,
+	doc/make-help.xsl, doc/make-html.xsl, doc/style.css,
+	docbk-menu.el, exclude.txt, html/search.html: New file.
+
+	* COPYING, Makefile, NEWS, README, TODO, VERSION,
+	doc/Makefile, doc/docbook-menu.xml, doc/html-common.xsl,
+	doc/images/docbook-menu-els-alpha.gif,
+	doc/images/docbook-menu-els-logic.gif,
+	doc/images/docbook-menu-faq.gif, doc/images/docbook-menu-tdg.gif,
+	doc/images/docbook-menu-xsl-fo.gif,
+	doc/images/docbook-menu-xsl-tcg.gif, doc/images/home.png,
+	doc/images/next.png, doc/images/prev.png, doc/images/up.png,
+	doc/make-help.xsl, doc/make-html.xsl, doc/style.css,
+	docbk-menu.el, exclude.txt, html/search.html: initial import
+

@@ -1,0 +1,3374 @@
+#! /bin/sh
+# This is a shell archive.  Remove anything before this line, then unpack
+# it by saving it into a file and typing "sh file".  To overwrite existing
+# files, type "sh file -c".  You can also feed this as standard input via
+# unshar, or by typing "sh <file", e.g..  If this archive is complete, you
+# will see the following message at the end:
+#		"End of archive 1 (of 2)."
+# Contents:  README.compile2 command-window.el declare-object.el
+#   generic-filter.el hlist.el request-directory.el
+#   window-manip-fns.el
+# Wrapped by nsd@nsd.bbc.com on Thu Oct 14 22:59:34 1993
+PATH=/bin:/usr/bin:/usr/ucb ; export PATH
+if test -f 'README.compile2' -a "${1}" != "-c" ; then 
+  echo shar: Will not clobber existing file \"'README.compile2'\"
+else
+echo shar: Extracting \"'README.compile2'\" \(6637 characters\)
+sed "s/^X//" >'README.compile2' <<'END_OF_FILE'
+X;;;; -*- Emacs-Lisp -*-
+X
+X;;;; This file contains a description of and installation instructions for
+X;;;; compile2 version 2.07, a drop-in replacement for the
+X;;;; Emacs distribution's compilation package.
+X
+X;;;; Copyright Nick Duffek 1993.
+X
+X;;;; Features
+X;;;; --------
+X;;;;
+X;;;; - Fast response time when jumping to error messages -- no lengthy delay
+X;;;;   waiting for Emacs to parse all messages.
+X;;;;
+X;;;; - Changing buffer text, e.g. to correct an error, doesn't affect
+X;;;;   correctness of locations of errors farther on in the same buffer.
+X;;;;
+X;;;; - New previous-error and current-error respectively jump to previous and
+X;;;;   current error.
+X;;;;
+X;;;; - Prefix arg to next-error or previous-error moves that many errors
+X;;;;   forward or back.
+X;;;;
+X;;;; - New jump-to-err-at-point jumps to error nearest point in compilation
+X;;;;   window.
+X;;;;
+X;;;; - Deleting errors from compilation buffer automatically removes them
+X;;;;   from the error lists next-error and previous-error use.  Function
+X;;;;   compile-reparse incorporates arbitrary edits into error lists.
+X;;;;
+X;;;; - Parses any region in any buffer as compilation output.
+X;;;;
+X;;;; - Supports multiple compilations:
+X;;;;    - automatically generates different windows and processes for
+X;;;;      compilations with different invocation strings.
+X;;;;    - optionally generates parallel process for compilations with the
+X;;;;      same invocation string.
+X;;;;    - shows number of active compilations in status line.
+X;;;;
+X;;;; - Parses messages from potentially any program via user-customizable
+X;;;;   list of regular expressions.  Current list parses output from 4.3bsd
+X;;;;   and system V lint, various C compilers, make, sh(1), gnumake, perl,
+X;;;;   and programs generating GNU-style file:line: messages.
+X;;;;
+X;;;;   The above feature originated in wolfgang@wsrc2.com (Wolfgang S.
+X;;;;   Rupprecht)'s mult-compile.el package.
+X;;;;
+X;;;; - Finds files using customizable directory search list.
+X;;;;
+X;;;; - Displays message when compilation in nonvisible buffer exits.
+X;;;;
+X;;;; - ...and more!
+X
+X;;;; Requirements
+X;;;; ------------
+X;;;;
+X;;;; - Must be compiled by Jamie Zawinski's optimizing byte-compiler,
+X;;;;   available via anonymous ftp from archive.cis.ohio-state.edu in
+X;;;;   /pub/gnu/emacs/elisp-archive/packages/bytecomp.tar.Z.  (Uses
+X;;;;   eval-when-compile.)
+X;;;;
+X;;;; - Requires the additional files declare-object.el, hlist.el,
+X;;;;   command-window.el, generic-filter.el, request-directory.el, and
+X;;;;   window-manip-fns.el, all of which should accompany this file.
+X
+X;;;; Installation
+X;;;; ------------
+X;;;;
+X;;;; 1. Add the following to your .emacs, modifying key bindings to suit your
+X;;;;    taste:
+X;;;;
+X;;;;    (autoload 'compile-again "compile"
+X;;;;      "Run most recent compilation again, saving all buffers first."
+X;;;;      t nil)
+X;;;;    (autoload 'compile-parse-shell-output "compile"
+X;;;;      "Parse most recent shell output as compilation output." t nil)
+X;;;;    (global-set-key "\C-x\C-n" 'compile-next-error)	; was set-goal-column
+X;;;;    (global-set-key "\C-x\C-p" 'compile-previous-error) ; was mark-page
+X;;;;    (global-set-key "\C-x." 'compile-current-error)	; was set-fill-prefix
+X;;;;    (global-set-key "\M-c" 'compile)		; was capitalize-word
+X;;;;    (global-set-key "\M-g" 'grep)			; was fill-region
+X;;;;    (global-set-key "\C-x\C-e" 'compile-again)	; was eval-last-sexp
+X;;;;
+X;;;;    (require 'shell)
+X;;;;    (define-key shell-mode-map "\C-cp" 'compile-parse-shell-output)
+X;;;;
+X;;;; 2. Copy this file and all files that accompanied it to a directory in
+X;;;;    your load-path.
+X;;;;
+X;;;; 3. Edit this file in Emacs and execute M-x eval-defun, which evaluates
+X;;;;    the following expression:
+X
+X(progn
+X  
+X  ;; Need Jamie Zawinski's optimizing byte-compiler
+X  (require 'byte-optimize)
+X  
+X  ;; cd to load-path directory containing compile2.el
+X  (let ((compile2-directory nil)
+X	default-directory)
+X    (mapcar
+X     (function (lambda (dir)
+X		 (and (not compile2-directory)
+X		      (let ((default-directory dir))
+X			(file-exists-p (expand-file-name "compile2.el")))
+X		      (setq compile2-directory dir))))
+X     load-path)
+X
+X    (or compile2-directory
+X	(error "Cannot find directory in load-path containing compile2.el"))
+X    (setq default-directory compile2-directory)
+X    
+X    ;; Symbolically link compile.el[c] to compile2.el[c] to prevent
+X    ;; unpredictable interactions with distribution compile.el when packages
+X    ;; require 'compile.
+X    (or (equal (file-symlink-p "compile.el") "compile2.el")
+X	(progn (and (file-exists-p "compile.el")
+X		    (if (file-exists-p "compile.el.orig")
+X			(error "
+Xcompile.el.orig exists -- rename or remove to install compile2")
+X		      (rename-file "compile.el" "compile.el.orig")))
+X	       (make-symbolic-link "compile2.el" "compile.el")))
+X    (or (equal (file-symlink-p "compile.elc") "compile2.elc")
+X	(progn (and (file-exists-p "compile.elc")
+X		    (delete-file "compile.elc"))
+X	       (make-symbolic-link "compile2.elc" "compile.elc"))))
+X  
+X  (autoload 'byte-compile-and-load-file "bytecomp")
+X  (let ((srcs '("declare-object.el" "window-manip-fns.el" "command-window.el"
+X		"hlist.el" "generic-filter.el" "request-directory.el"
+X		"compile2.el")))
+X    (mapcar (function (lambda (filename) (byte-compile-file filename 'load)))
+X	    srcs))
+X  (message "Installation complete"))
+X
+X;;;; End of installation instructions.
+X
+X;;;; Bug Reports
+X;;;; -----------
+X;;;;
+X;;;; Please help make this a better package by sending bug reports and any
+X;;;; suggestions, questions, or comments to the author, Nick Duffek, at
+X;;;; nsd@nsd.bbc.com.
+X
+X;;;; Future projects
+X;;;; ---------------
+X;;;;
+X;;;; - Interpret column specifiers.
+X;;;; - Provide compilation buffer electric key bindings akin to buffer-menu,
+X;;;;   for error deletion, jumping, ...
+X;;;; - Provide buffer-menu-like interface to list of extant compilations,
+X;;;;   displaying name and process status.
+X;;;; - find command analogous to grep -- probably can adapt from rs-compile
+X;;;; - command completion for M-x compile
+X
+X;;;; Acknowledgements
+X;;;; ----------------
+X;;;;
+X;;;; Many, many thanks to:
+X;;;;  - John Interrante <interran@uluru.stanford.edu>,
+X;;;;  - Benjamin Pierce <pierce@pauillac.inria.fr>,
+X;;;;  - David Karr <dkarr@sierra.com>,
+X;;;;  - Cedric Beust <beust@sa.inria.fr>,
+X;;;;  - Amir J. Katz, <amir@matis.ingr.com>,
+X;;;;  - Gunnar R|nning <gunnarr@ifi.uio.no>,
+X;;;;  - Aaron Oppenheimer <afo@hpwarga.wal.hp.com>,
+X;;;;  - Allan E Johannesen <aej@wpi.WPI.EDU>, and
+X;;;;  - Rafi Blumenfeld <rafi@matis.ingr.com>
+X;;;; for their suggestions and comments before and during compile2
+X;;;; beta-testing.  This version of compile2 owes much to their input.
+END_OF_FILE
+if test 6637 -ne `wc -c <'README.compile2'`; then
+    echo shar: \"'README.compile2'\" unpacked with wrong size!
+fi
+# end of 'README.compile2'
+fi
+if test -f 'command-window.el' -a "${1}" != "-c" ; then 
+  echo shar: Will not clobber existing file \"'command-window.el'\"
+else
+echo shar: Extracting \"'command-window.el'\" \(3647 characters\)
+sed "s/^X//" >'command-window.el' <<'END_OF_FILE'
+X;;;; Pop up command windows
+X;;;;
+X;;;; Distributed with compile2 version 2.07
+X;;;; Copyright Nick Duffek, 1993
+X;;;;
+X;;;; This file is not part of GNU Emacs.  However, the following applies as
+X;;;; if it were:
+X;;;;
+X;;;; GNU Emacs is distributed in the hope that it will be useful, but WITHOUT
+X;;;; ANY WARRANTY.  No author or distributor accepts responsibility to anyone
+X;;;; for the consequences of using it or for whether it serves any particular
+X;;;; purpose or works at all, unless he says so in writing.  Refer to the GNU
+X;;;; Emacs General Public License for full details.
+X;;;;
+X;;;; Everyone is granted permission to copy, modify and redistribute GNU
+X;;;; Emacs, but only under the conditions described in the GNU Emacs General
+X;;;; Public License.  A copy of this license is supposed to have been given
+X;;;; to you along with GNU Emacs so you can know your rights and
+X;;;; responsibilities.  It should be in a file named COPYING.  Among other
+X;;;; things, the copyright notice and this notice must be preserved on all
+X;;;; copies.
+X;;;;
+X;;;;===========================================================================
+X;;;;
+X;;;; Pop up windows with dimensions and positions suitable for "command
+X;;;; window", i.e. a window in which user enters commands (e.g. to a
+X;;;; compiler).
+X
+X(require 'window-manip-fns)
+X
+X(defvar command-window-height-hook 'default-command-window-height
+X  "*Function which returns suggested height of command windows.")
+X
+X(defun default-command-window-height ()
+X  "Default suggested height of command windows."
+X  (max 8 (/ (screen-height) 3)))
+X
+X(defsubst window-spans-screen-vertically (window)
+X  "Return whether WINDOW extends from top of screen to top of minibuffer
+Xwindow."
+X  ;; Cannot simply return (one-window-p), since it becomes false when
+X  ;; splitting horizontally.
+X  (= (+ (window-height window)
+X	(window-height (minibuffer-window)))
+X     (screen-height)))
+X
+X(defun pop-to-command-buffer (buffer &optional window-height-hook)
+X  "Select \"command\" BUFFER \(e.g. compilation window, debugger window\) in
+Xa window and return the window.  Optional second arg WINDOW-HEIGHT-HOOK is a
+Xfunction which returns a suggested height for the window."
+X  ;;
+X  ;; If buffer already has window, select it; otherwise select topmost
+X  ;; window, and shrink (but don't expand) it to match target height if
+X  ;; necessary.
+X  ;;
+X  (let ((window (get-buffer-window buffer))
+X	(current-window (selected-window)))
+X    (if window
+X	(select-window window)
+X      (let ((target-height (funcall (or window-height-hook
+X					command-window-height-hook
+X					'default-command-window-height))))
+X	(setq window (top-window))
+X	(select-window window)
+X	
+X	(and (>= (window-height window)
+X		 target-height)
+X	     (if (window-spans-screen-vertically window)
+X		 (split-window-vertically target-height)
+X	       (shrink-window (- (window-height window)
+X				 target-height))))
+X	(switch-to-buffer buffer)))
+X    window))
+X
+X(defun pop-up-command-buffer (buffer &optional window-height-hook)
+X  "Display but don't select BUFFER as an interactive buffer \(e.g.
+Xcompilation window, debugger window\) in a window and return the window.
+XOptional second arg WINDOW-HEIGHT-HOOK is a function which returns a
+Xsuggested height for the window."
+X  (or (get-buffer-window buffer)
+X      (let* ((orig-window (selected-window))
+X	     (command-window
+X	      (pop-to-command-buffer buffer window-height-hook)))
+X	
+X	;; Select a window other than command-window, preferably the one that
+X	;; was selected upon entry to this function:
+X	(select-window
+X	 (if (eq command-window orig-window)
+X	     (next-window command-window)
+X	   orig-window))
+X	command-window)))
+X
+X(provide 'command-window)
+END_OF_FILE
+if test 3647 -ne `wc -c <'command-window.el'`; then
+    echo shar: \"'command-window.el'\" unpacked with wrong size!
+fi
+# end of 'command-window.el'
+fi
+if test -f 'declare-object.el' -a "${1}" != "-c" ; then 
+  echo shar: Will not clobber existing file \"'declare-object.el'\"
+else
+echo shar: Extracting \"'declare-object.el'\" \(3320 characters\)
+sed "s/^X//" >'declare-object.el' <<'END_OF_FILE'
+X;;;; Efficient fixed-size objects with named fields
+X;;;;
+X;;;; Distributed with compile2 version 2.07
+X;;;; Copyright Nick Duffek, 1993
+X;;;;
+X;;;; This file is not part of GNU Emacs.  However, the following applies as
+X;;;; if it were:
+X;;;;
+X;;;; GNU Emacs is distributed in the hope that it will be useful, but WITHOUT
+X;;;; ANY WARRANTY.  No author or distributor accepts responsibility to anyone
+X;;;; for the consequences of using it or for whether it serves any particular
+X;;;; purpose or works at all, unless he says so in writing.  Refer to the GNU
+X;;;; Emacs General Public License for full details.
+X;;;;
+X;;;; Everyone is granted permission to copy, modify and redistribute GNU
+X;;;; Emacs, but only under the conditions described in the GNU Emacs General
+X;;;; Public License.  A copy of this license is supposed to have been given
+X;;;; to you along with GNU Emacs so you can know your rights and
+X;;;; responsibilities.  It should be in a file named COPYING.  Among other
+X;;;; things, the copyright notice and this notice must be preserved on all
+X;;;; copies.
+X;;;;
+X;;;;===========================================================================
+X;;;;
+X;;;; Generate macros to create fixed-size objects and efficiently access and
+X;;;; modify their fields.
+X
+X(defun declare-object (prefix-sym name-sym field-syms)
+X  "Args: PREFIX \(a symbol\), NAME \(a symbol\), and FIELDS \(a list of
+Xsymbols\).  Define macro \(PREFIX-create-NAME\) to return an object with
+XFIELDS, and macros \(PREFIX-NAME-FIELD object\) and \(PREFIX-set-NAME-FIELD
+Xobject value\) to respectively access and modify those FIELDS."
+X  (let* ((prefix (symbol-name prefix-sym))
+X	 (name (symbol-name name-sym))
+X	 (fields (mapcar '(lambda (field) (symbol-name field))
+X			 field-syms))
+X	 (nfields (length fields))
+X	 (index 0)
+X	 (creation-macro-name (concat prefix "-create-" name)))
+X    
+X    ;; Object creation macro
+X    (eval (` (defmacro
+X	       (, (intern creation-macro-name)) (&rest init-list)
+X	       (, (concat "\
+XCreate and return a " name " object initialized with INIT-LIST's elements if
+XINIT-LIST is non-nil, and with null values otherwise."))
+X	       (let ((create-form '(make-vector (, nfields) nil)))
+X		 (if (null init-list)
+X		     create-form
+X		   (and (/= (length init-list) (, nfields))
+X			(error
+X			 (, (format
+X			     "%s requires either zero or %d arguments"
+X			     creation-macro-name nfields))))
+X		   
+X		   ;; Generate list of initialization forms, return let
+X		   ;; construct which creates and initializes object
+X		   (let ((let-construct
+X			  (` (let ((obj (, '(, create-form)))))))
+X			 (i 0))
+X		     (mapcar
+X		      (function
+X		       (lambda (init)
+X			 (nconc let-construct
+X				(list (list 'aset 'obj i init)))
+X			 (setq i (1+ i))))
+X		      init-list)
+X		     (nconc let-construct (list 'obj))))))))
+X    
+X    (mapcar
+X     '(lambda (field)
+X	
+X	;; Object modify macros
+X	(eval
+X	 (` (defmacro
+X	      (, (intern (concat prefix "-set-"
+X				 name "-" field)))
+X	      (object val)
+X	      (` (aset (, '(, object)) (, index)
+X		       (, '(, val)))))))
+X	
+X	;; Object create macros
+X	(eval
+X	 (` (defmacro
+X	      (, (intern (concat prefix "-"
+X				 name "-" field)))
+X	      (object)
+X	      (` (aref (, '(, object)) (, index))))))
+X	
+X	(setq index (1+ index)))
+X     
+X     fields)))
+X
+X(put 'declare-object 'lisp-indent-hook 'defun)
+X
+X(provide 'declare-object)
+END_OF_FILE
+if test 3320 -ne `wc -c <'declare-object.el'`; then
+    echo shar: \"'declare-object.el'\" unpacked with wrong size!
+fi
+# end of 'declare-object.el'
+fi
+if test -f 'generic-filter.el' -a "${1}" != "-c" ; then 
+  echo shar: Will not clobber existing file \"'generic-filter.el'\"
+else
+echo shar: Extracting \"'generic-filter.el'\" \(4566 characters\)
+sed "s/^X//" >'generic-filter.el' <<'END_OF_FILE'
+X;;;; Generic filter wrapper
+X;;;;
+X;;;; Distributed with compile2 version 2.07
+X;;;; Copyright Nick Duffek, 1993
+X;;;;
+X;;;; This file is not part of GNU Emacs.  However, the following applies as
+X;;;; if it were:
+X;;;;
+X;;;; GNU Emacs is distributed in the hope that it will be useful, but WITHOUT
+X;;;; ANY WARRANTY.  No author or distributor accepts responsibility to anyone
+X;;;; for the consequences of using it or for whether it serves any particular
+X;;;; purpose or works at all, unless he says so in writing.  Refer to the GNU
+X;;;; Emacs General Public License for full details.
+X;;;;
+X;;;; Everyone is granted permission to copy, modify and redistribute GNU
+X;;;; Emacs, but only under the conditions described in the GNU Emacs General
+X;;;; Public License.  A copy of this license is supposed to have been given
+X;;;; to you along with GNU Emacs so you can know your rights and
+X;;;; responsibilities.  It should be in a file named COPYING.  Among other
+X;;;; things, the copyright notice and this notice must be preserved on all
+X;;;; copies.
+X;;;;
+X;;;;===========================================================================
+X;;;;
+X;;;; Generic wrapper for filters that modify buffers and perform matching.
+X;;;;
+X;;;; Functions that use generic-filter require window-manip-fns to be loaded.
+X
+X(defmacro generic-filter (filter-name process output buffer inhibit
+X				      &rest forms)
+X  "Wrapper for use around code in any filter which doesn't modify any
+Xbuffer at a point preceding \(point-max\).
+X
+XArgs: FILTER-NAME PROCESS OUTPUT BUFFER INHIBIT &rest FORMS.
+X
+XSets buffer to \(process-buffer PROCESS\), creates variable BUFFER and sets
+Xit to that buffer, inhibits other invocations of the filter by PROCESS while
+Xthis one is active \(e.g. if this one is waiting for user input, as during
+Xdebugging\) if INHIBIT is non-nil, and evaluates FORMS, intelligently
+Xretaining the following context across evaluation:
+X - match data
+X - window points
+X - buffer points
+X
+XUses FILTER-NAME and OUTPUT \(from process, passed as arg to filter
+Xfunction\) internally for inhibiting other invocations if INHIBIT.
+X
+XRequires process-mark to be set \(e.g. \(set-marker \(process-mark process\)
+X\(point-max\)\)."
+X  (let ((body
+X	 (` (let* ((inhibit-quit nil)
+X		   (start-buffer (current-buffer))
+X		   (start-buffer-point (point))
+X		   (proc-mark (process-mark (, process)))
+X		   window-start-points
+X		   buffer-start-point
+X		   start-point-max
+X		   finish-point-max
+X		   (start-proc-mark (marker-position proc-mark))
+X		   (match-data (match-data))
+X		   ((, buffer) (process-buffer (, process))))
+X	      (unwind-protect
+X		  (progn
+X		    (set-buffer (, buffer))
+X		    (setq buffer-start-point (point))
+X		    (setq window-start-points
+X			  (mapcar (function (lambda (w)
+X					      (cons w (window-point w))))
+X				  (get-buffer-windows (, buffer))))
+X		    (setq start-point-max (point-max))
+X		    (goto-char start-proc-mark)
+X		    
+X		    (,@ forms)
+X		    (, t)			;; avoid bug in Emacs v18
+X		    
+X		    ;; Generic filter post-insert and match-data restoring
+X		    (move-marker proc-mark (point)))
+X		(setq finish-point-max (point-max))
+X		(goto-char
+X		 (if (< buffer-start-point start-proc-mark)
+X		     buffer-start-point
+X		   (- finish-point-max (- start-point-max buffer-start-point))))
+X		(set-buffer start-buffer)
+X		(goto-char start-buffer-point)
+X		(mapcar (function
+X			 (lambda (wp)
+X			   (let ((window (car wp))
+X				 (window-start-point (cdr wp)))
+X			     (set-window-point
+X			      window
+X			      (if (< window-start-point start-proc-mark)
+X				  window-start-point
+X				(- finish-point-max (- start-point-max
+X						       window-start-point)))))))
+X			window-start-points)
+X		(store-match-data match-data))))))
+X    
+X    (if inhibit
+X	(` (if (get 'generic-filter-inhibited (, process))
+X	       
+X	       ;; Another filter is active -- append our output to saved output
+X	       ;; and return.
+X	       
+X	       (put 'generic-filter-output (, process)
+X		    (concat (get 'generic-filter-output (, process))
+X			    (, output)))
+X	     
+X	     ;; No other filters active -- install this invocation as active
+X	     ;; filter and evaluate body.
+X
+X	     (put 'generic-filter-inhibited (, process) t)
+X	     (, body)
+X	     (put 'generic-filter-inhibited (, process) nil)
+X
+X	     ;; Reinvoke self if output was collected by other invocations
+X	     ;; during our evaluation of body.
+X
+X	     (let ((output (get 'generic-filter-output (, process))))
+X	       (and output
+X		    (progn (put 'generic-filter-output (, process) nil)
+X			   ((, filter-name) (, process) output))))))
+X      
+X      body)))
+X
+X(provide 'generic-filter)
+END_OF_FILE
+if test 4566 -ne `wc -c <'generic-filter.el'`; then
+    echo shar: \"'generic-filter.el'\" unpacked with wrong size!
+fi
+# end of 'generic-filter.el'
+fi
+if test -f 'hlist.el' -a "${1}" != "-c" ; then 
+  echo shar: Will not clobber existing file \"'hlist.el'\"
+else
+echo shar: Extracting \"'hlist.el'\" \(14091 characters\)
+sed "s/^X//" >'hlist.el' <<'END_OF_FILE'
+X;;;; History list data structure
+X;;;;
+X;;;; Distributed with compile2 version 2.07
+X;;;; Copyright Nick Duffek, 1993
+X;;;;
+X;;;; This file is not part of GNU Emacs.  However, the following applies as
+X;;;; if it were:
+X;;;;
+X;;;; GNU Emacs is distributed in the hope that it will be useful, but WITHOUT
+X;;;; ANY WARRANTY.  No author or distributor accepts responsibility to anyone
+X;;;; for the consequences of using it or for whether it serves any particular
+X;;;; purpose or works at all, unless he says so in writing.  Refer to the GNU
+X;;;; Emacs General Public License for full details.
+X;;;;
+X;;;; Everyone is granted permission to copy, modify and redistribute GNU
+X;;;; Emacs, but only under the conditions described in the GNU Emacs General
+X;;;; Public License.  A copy of this license is supposed to have been given
+X;;;; to you along with GNU Emacs so you can know your rights and
+X;;;; responsibilities.  It should be in a file named COPYING.  Among other
+X;;;; things, the copyright notice and this notice must be preserved on all
+X;;;; copies.
+X;;;;
+X;;;;===========================================================================
+X;;;;
+X;;;; An hlist is a data structure optimized for use as a history list, i.e. a
+X;;;; list whose elements are typically accessed sequentially.
+X;;;;
+X;;;; This file provides functions for creating and operating on hlists,
+X;;;; including hlist-create, hlist-emptyp, hlist-clear, hlist-length,
+X;;;; hlist-current, hlist-first, hlist-last, hlist-nth, hlist-find,
+X;;;; hlist-find-sorted, hlist-forward, hlist-insert, hlist-insert-last,
+X;;;; hlist-delete, hlist-delete-first, hlist-map, and hlist-copy.
+X;;;;
+X;;;; For efficiency of insert, previous, and next operations, a history list
+X;;;; is a fairly complex data structure:
+X;;;;
+X;;;;   ---------------------------------
+X;;;;  |      _______ _______ _______ ___|___ _______
+X;;;;  |     |       |       |       |       |       |
+X;;;;  |     |  pos  |  len  |  max  |  beg  |  end  |----------
+X;;;;  |     |_______|_______|_______|_______|_______|          |
+X;;;;  |         |                       	              |
+X;;;;  |          ------------------------------               |
+X;;;;  |      ___ ___       ___ ___             |     ___ ___  |    ___ ___
+X;;;;   ---->|___|___|---->|___|___|----> . . .  --->|___|___|---->|___|_/_|
+X;;;;          |   ^         |   ^                     |   ^         |   ^
+X;;;;          |   |         |   |                     |   |         |   |
+X;;;;          |    ----     |    ----                 |    ----     |    ----
+X;;;; 	     _v_ ___   |   _v_ ___   |               _v_ ___   |   _v_ ___  |
+X;;;; 	    |___|___|  |  |___|___|  |   . . .      |___|___|  |  |___|___| |
+X;;;;         |   val   |   |   val   |               |   val   |   |   val  |
+X;;;; 	     |         |   |         |               |         |   |        |
+X;;;;         |  -------    |  -------                |  -------    |  -------
+X;;;; 	     v_| ___       v_| ___                   v_| ___       v_| ___
+X;;;; 	    |___|_/_|<--  |___|___|<--   . . . <--  |___|___|<--  |___|___|
+X;;;;		        |       |                 |       |	 |	 |
+X;;;;			 ------- 		   -------	  -------
+X;;;;
+X;;;; This structure allows using the fast nth function for scanning the list
+X;;;; forward or backward.
+X
+X(require 'declare-object)
+X
+X(eval-when-compile
+X  (declare-object 'hlist 'hl
+X    '(pos len max beg end)))
+X
+X;;; Private functions
+X
+X(defun hlist-elt-create (val next prev)
+X  "Return a new hlist element with components VAL, NEXT, and PREV."
+X  (let* ((val-pair (cons nil val))
+X	 (next-pair (cons val-pair next))
+X	 (prev-pair (cons next-pair
+X			  (and prev (car (car prev))))))
+X    (setcar val-pair prev-pair)
+X    next-pair))
+X
+X(defmacro hlist-elt-val (elt)
+X  (` (cdr (car (, elt)))))
+X
+X(defmacro hlist-elt-next (elt)
+X  (` (cdr (, elt))))
+X
+X(defmacro hlist-elt-set-next (elt next)
+X  (` (setcdr (, elt) (, next))))
+X
+X(defmacro hlist-elt-nth-next (n elt)
+X  ;; Returns the nth elt after elt, or nil if there are less than n elts
+X  ;; after hist-elt
+X  (` (nthcdr (, n) (, elt))))
+X
+X(defmacro hlist-elt-nth-prev (n elt)
+X  ;; Returns the nth elt before elt, or nil if there are less than n elts
+X  ;; before hist-elt
+X  (` (nth (, n) (car (car (, elt))))))
+X
+X(defmacro hlist-elt-prev (elt)
+X  ;; Returns the elt before elt, or nil if none
+X  (` (let ((prev (cdr (car (car (, elt))))))
+X       (and prev (car prev)))))
+X
+X(defmacro hlist-elt-set-prev (elt prev)
+X  ;; Sets elt's prev pointer to point to prev's prev pointer
+X  (` (setcdr (car (car (, elt)))
+X	     (car (car (, prev))))))
+X
+X(defun hlist-elt-delete (hl elt)
+X  ;; Delete elt from hlist.
+X  (let ((next (hlist-elt-next elt))
+X	(prev (hlist-elt-prev elt)))
+X    (hlist-set-hl-len hl (1- (hlist-hl-len hl)))
+X    (and (eq (hlist-hl-pos hl) elt)
+X	 (hlist-set-hl-pos hl (or next prev)))
+X    (if prev
+X	(hlist-elt-set-next prev next)
+X      (hlist-set-hl-beg hl next))
+X    (if next
+X	(hlist-elt-set-prev next prev)
+X      (hlist-set-hl-end hl prev))))
+X
+X;;; Public functions
+X
+X(defun hlist-create (&optional max)
+X  "Create and return a new hlist whose length never exceeds MAX \(nil means
+Xno limit\)."
+X  (and (or (not (integerp max))
+X	   ;; if max <= 0, deleting the last element won't work right.
+X	   (<= max 0))
+X       (setq max nil))
+X  (let ((hl (hlist-create-hl)))
+X    (hlist-clear hl)
+X    (hlist-set-hl-max hl max)
+X    hl))
+X
+X(defsubst hlist-emptyp (hl)
+X  "Return t if HLIST is empty, nil otherwise."
+X  (not (hlist-hl-beg hl)))
+X
+X(defun hlist-clear (hl)
+X  "Remove all elements from HLIST."
+X  (hlist-set-hl-pos hl nil)
+X  (hlist-set-hl-len hl 0)
+X  (hlist-set-hl-beg hl nil)
+X  (hlist-set-hl-end hl nil))
+X
+X(defsubst hlist-length (hl)
+X  "Return the number of elements in HLIST."
+X  (hlist-hl-len hl))
+X
+X(defsubst hlist-current (hl)
+X  "Return the element at the current position in HLIST."
+X  (hlist-elt-val (hlist-hl-pos hl)))
+X
+X(defsubst hlist-first (hl &optional set-position)
+X  "Return the first element in HLIST.  Optional second argument SET-POSITION
+Xnon-nil sets HLIST's position to that element."
+X  (let ((beg (hlist-hl-beg hl)))
+X    (and set-position (hlist-set-hl-pos hl beg))
+X    (hlist-elt-val beg)))
+X
+X(defsubst hlist-last (hl &optional set-position)
+X  "Return the last element in HLIST.  Optional second argument SET-POSITION
+Xnon-nil sets HLIST's position to that element."
+X  (let ((end (hlist-hl-end hl)))
+X    (and set-position (hlist-set-hl-pos hl end))
+X    (hlist-elt-val end)))
+X
+X(defsubst hlist-nth (n hl &optional set-position)
+X  "Return the Nth element from the beginning of HLIST.  N counts from zero.
+XOptional third argument SET-POSITION non-nil sets HLIST's position to that
+Xelement if it exists.  If HLIST is not that long, return nil and don't modify
+Xits position."
+X  (let ((nth (hlist-elt-nth-next n (hlist-hl-beg hl))))
+X    (and nth (progn (and set-position (hlist-set-hl-pos hl nth))
+X		    (hlist-elt-val nth)))))
+X
+X(defsubst hlist-nth-hence (n hl &optional set-position)
+X  "Return the Nth element from HLIST's current position.  N counts from zero.
+XOptional third argument SET-POSITION non-nil sets HLIST's position to that
+Xelement if it exists.  If HLIST is not that long, return nil and don't modify
+Xits position."
+X  (let ((nth (if (< n 0)
+X		 (hlist-elt-nth-prev (- n) (hlist-hl-pos hl))
+X	       (hlist-elt-nth-next n (hlist-hl-pos hl)))))
+X    (and nth (progn (and set-position (hlist-set-hl-pos hl nth))
+X		    (hlist-elt-val nth)))))
+X
+X(defun hlist-find (hl predicate &optional set-position)
+X  "Perform a linear search in HLIST for the first element for which PREDICATE
+Xreturns non-nil, and return that element.  Optional third argument
+XSET-POSITION non-nil sets HLIST's position to that element if it exists."
+X  (let ((elt (hlist-hl-beg hl))
+X	(found nil))
+X    (while (and elt (not found))
+X      (and (apply predicate (hlist-elt-val elt) nil)
+X	   (progn (setq found (hlist-elt-val elt))
+X		  (and set-position (hlist-set-hl-pos hl elt))))
+X      (setq elt (hlist-elt-next elt)))
+X    found))
+X
+X(defun hlist-find-sorted (hl predicate &optional set-position)
+X  "Perform a binary search in HLIST for the first element for which PREDICATE
+Xreturns non-nil, and return that element.  Optional third argument
+XSET-POSITION non-nil sets HLIST's position to that element if it exists.
+X
+XAssumes elements in HLIST are sorted such that PREDICATE returns nil for all
+Xelements preceding the desired one, and non-nil for all remaining elements."
+X  (let ((len (hlist-length hl))
+X	(cur (hlist-hl-beg hl)))
+X    (while (> len 1)
+X      
+X      ;; Pick an element in the middle of the current list for examination by
+X      ;; PREDICATE.
+X      (let ((middle (hlist-elt-nth-next (/ len 2) cur)))
+X	(if (apply predicate (hlist-elt-val middle) nil)
+X	    
+X	    ;; Set the current list to the elements preceding the middle one.
+X	    (setq len (/ len 2))
+X
+X	  ;; Set current list to elements following the middle one.
+X	  (setq len (- len 1 (/ len 2)))
+X	  (setq cur (hlist-elt-next middle)))))
+X    
+X    ;; cur's value now satisfies one of three conditions:
+X    (or
+X     (null cur)
+X     ;; (1) results from the degenerate case where len in the
+X     ;;     above loop was 2 and the last element didn't satisfy predicate.
+X     
+X     (apply predicate (hlist-elt-val cur) nil)
+X      ;; (2) implies cur is the first element satisfying predicate.
+X     
+X     (setq cur (hlist-elt-next cur))
+X     ;; (3) cur does not satisfy predicate, which implies cur either is
+X     ;;     the last element or else immediately precedes an element
+X     ;;     satisfying predicate.
+X     )
+X    
+X    (and cur (progn (and set-position (hlist-set-hl-pos hl cur))
+X		    (hlist-elt-val cur)))))
+X
+X(defun hlist-forward (n hl)
+X  "Return the element N elements away from current position in HLIST and set
+Xcurrent position to point to it \(i.e., \(nth-hlist 0 h\) returns the element
+Xat current position in h\)."
+X  ;; Return the nth element in hlist, and update hlist's current
+X  ;; position to point to that element.
+X  ;; If n > 0 and hlist's position is at its end, return nil; otherwise,
+X  ;;     if n > 0 and there aren't n more elements beyond hlist's
+X  ;;     position, return hlist's end.
+X  ;; Similarly for n < 0.
+X  (let ((pos (hlist-hl-pos hl)))
+X    (if (null pos)
+X	nil
+X      (let ((beg (hlist-hl-beg hl))
+X	    (end (hlist-hl-end hl))
+X	    (nth-elt
+X	     (if (< n 0)
+X		 (hlist-elt-nth-prev (- n) pos)
+X	       (hlist-elt-nth-next n pos))))
+X	(and (null nth-elt)
+X	     (setq nth-elt
+X		   ;; If we're already at the limit of the list, return nil
+X		   (if (< n 0)
+X		       (if (eq pos beg) nil beg)
+X		     (if (eq pos end) nil end))))
+X	;; Update hlist position:
+X	(and nth-elt
+X	     (progn (hlist-set-hl-pos hl nth-elt)
+X		    (hlist-elt-val nth-elt)))))))
+X
+X(defun hlist-insert (hl val &optional no-duplicates predicate)
+X  "Insert at HLIST's beginning VAL, and set current position to point to it.
+XOptional third arg NO-DUPLICATES non-nil means remove all other occurrences
+Xof VAL from the list, determining value equivalence by optional fourth arg
+XPREDICATE, which defaults to eq."
+X  (let* ((beg (hlist-hl-beg hl))
+X	 (new (hlist-elt-create val beg nil))
+X	 (len (hlist-hl-len hl)))
+X    (if beg				;; empty hlist?
+X	(hlist-elt-set-prev beg new)
+X      (hlist-set-hl-end hl new))
+X    (hlist-set-hl-pos hl new)
+X    (hlist-set-hl-beg hl new)
+X    (setq len (1+ len))
+X    (hlist-set-hl-len hl len)
+X    (and (hlist-hl-max hl)
+X	 (> len (hlist-hl-max hl))
+X	 (hlist-elt-delete hl (hlist-hl-end hl))))
+X  
+X  (and no-duplicates
+X       (let ((elt (hlist-elt-next (hlist-hl-beg hl))))
+X	 (while elt
+X	   (and (apply (or predicate 'eq) (hlist-elt-val elt) val nil)
+X		(hlist-elt-delete hl elt))
+X	   (setq elt (hlist-elt-next elt)))))
+X  hl)
+X
+X(defun hlist-insert-last (hl val &optional no-duplicates pred)
+X  "Insert at HLIST's end VAL, provided HLIST has not already reached its
+Xmaximum length.  Do not modify HLIST's current position unless HLIST was
+Xempty.  Optional third arg NO-DUPLICATES non-nil means remove all other
+Xoccurrences of VAL from the list, determining value equivalence by optional
+Xfourth arg PREDICATE, which defaults to eq."
+X  (let ((new-len (1+ (hlist-hl-len hl))))
+X
+X    ;; Don't exceed max length:
+X    (or (and (hlist-hl-max hl)
+X	     (> new-len (hlist-hl-max hl)))
+X
+X	;; Don't violate duplicate rule:
+X	(and no-duplicates
+X	     (hlist-find hl (function (lambda (v)
+X					(apply (or pred 'eq) v val nil)))))
+X	
+X	;; Insert val:
+X	(let* ((end (hlist-hl-end hl))
+X	       (new (hlist-elt-create val nil end)))
+X	  (if end			;; empty hlist?
+X	      (hlist-elt-set-next end new)
+X	    (hlist-set-hl-beg hl new)
+X	    (hlist-set-hl-pos hl new))
+X	  (hlist-set-hl-end hl new)
+X	  (hlist-set-hl-len hl new-len)))))
+X
+X(defun hlist-delete (hl predicate)
+X  "Remove from HLIST all values for which PREDICATE returns non-nil."
+X  (let ((elt (hlist-hl-beg hl)))
+X    (while elt
+X      (if (apply predicate (hlist-elt-val elt) nil)
+X	  (let ((doomed elt))
+X	    (setq elt (hlist-elt-next elt))
+X	    (hlist-elt-delete hl doomed))
+X	(setq elt (hlist-elt-next elt))))))
+X
+X(defun hlist-delete-first (hl)
+X  "Remove and return the first element from HLIST."
+X  (let ((elt (hlist-hl-beg hl)))
+X    (and elt
+X	 (progn (hlist-elt-delete hl elt)
+X		(hlist-elt-val elt)))))
+X
+X(defun hlist-delete-current (hl)
+X  "Remove and return the current element from HLIST.  Leave position at
+Xfollowing element if there is one, and at previous element otherwise."
+X  (let ((elt (hlist-hl-pos hl)))
+X    (and elt
+X	 (progn (hlist-elt-delete hl elt)
+X		(hlist-elt-val elt)))))
+X
+X(defun hlist-map (fn hl)
+X  "Apply FUNCTION to each element of HLIST, starting with first element.
+XReturn nil."
+X  (let ((elt (hlist-hl-beg hl)))
+X    (while elt
+X      (apply fn (hlist-elt-val elt) nil)
+X      (setq elt (hlist-elt-next elt))))
+X  nil)
+X
+X(defun hlist-map-reverse (fn hl)
+X  "Apply FUNCTION to each element of HLIST, starting with last element.
+XReturn nil."
+X  (let ((elt (hlist-hl-end hl)))
+X    (while elt
+X      (apply fn (hlist-elt-val elt) nil)
+X      (setq elt (hlist-elt-prev elt))))
+X  nil)
+X
+X(defun hlist-copy (hl1 hl2)
+X  "Copy HLIST1 to HLIST2.  Sequences in HLIST1 are copied by reference, not
+Xby value."
+X  (hlist-clear hl2)
+X  (hlist-map
+X   (function
+X    (lambda (val)
+X      (hlist-insert-last hl2 val)))
+X   hl1)
+X  nil)
+X
+X(provide 'hlist)
+END_OF_FILE
+if test 14091 -ne `wc -c <'hlist.el'`; then
+    echo shar: \"'hlist.el'\" unpacked with wrong size!
+fi
+# end of 'hlist.el'
+fi
+if test -f 'request-directory.el' -a "${1}" != "-c" ; then 
+  echo shar: Will not clobber existing file \"'request-directory.el'\"
+else
+echo shar: Extracting \"'request-directory.el'\" \(1831 characters\)
+sed "s/^X//" >'request-directory.el' <<'END_OF_FILE'
+X;;;; Prompt for directory
+X;;;;
+X;;;; Distributed with compile2 version 2.07
+X;;;; Copyright Nick Duffek, 1993
+X;;;;
+X;;;; This file is not part of GNU Emacs.  However, the following applies as
+X;;;; if it were:
+X;;;;
+X;;;; GNU Emacs is distributed in the hope that it will be useful, but WITHOUT
+X;;;; ANY WARRANTY.  No author or distributor accepts responsibility to anyone
+X;;;; for the consequences of using it or for whether it serves any particular
+X;;;; purpose or works at all, unless he says so in writing.  Refer to the GNU
+X;;;; Emacs General Public License for full details.
+X;;;;
+X;;;; Everyone is granted permission to copy, modify and redistribute GNU
+X;;;; Emacs, but only under the conditions described in the GNU Emacs General
+X;;;; Public License.  A copy of this license is supposed to have been given
+X;;;; to you along with GNU Emacs so you can know your rights and
+X;;;; responsibilities.  It should be in a file named COPYING.  Among other
+X;;;; things, the copyright notice and this notice must be preserved on all
+X;;;; copies.
+X;;;;
+X;;;;===========================================================================
+X;;;;
+X;;;; Prompt for and read a directory name, bypassing peculiar behavior of
+X;;;; read-file-name.
+X
+X(defun request-directory (prompt)
+X  "Read a directory name with PROMPT, bypassing read-file-name's peculiar
+Xbehavior of returning buffer-file-name if users' response is
+Xdefault-directory."
+X  (let ((dir (expand-file-name
+X	      ;; prevent read-file-name from returning buffer file name if
+X	      ;; user's response is default-directory
+X	      (let ((buffer-file-name nil))
+X		(read-file-name prompt default-directory nil t)))))
+X    (or (eq system-type 'vax-vms)
+X	(setq dir (file-name-as-directory dir)))
+X    (or (file-directory-p dir)
+X	(error "%s is not a directory" dir))
+X    dir))
+X
+X(provide 'request-directory)
+END_OF_FILE
+if test 1831 -ne `wc -c <'request-directory.el'`; then
+    echo shar: \"'request-directory.el'\" unpacked with wrong size!
+fi
+# end of 'request-directory.el'
+fi
+if test -f 'window-manip-fns.el' -a "${1}" != "-c" ; then 
+  echo shar: Will not clobber existing file \"'window-manip-fns.el'\"
+else
+echo shar: Extracting \"'window-manip-fns.el'\" \(4250 characters\)
+sed "s/^X//" >'window-manip-fns.el' <<'END_OF_FILE'
+X;;;; Miscellaneous window manipulation functions
+X;;;;
+X;;;; Distributed with compile2 version 2.07
+X;;;; Copyright Nick Duffek, 1993
+X;;;;
+X;;;; This file is not part of GNU Emacs.  However, the following applies as
+X;;;; if it were:
+X;;;;
+X;;;; GNU Emacs is distributed in the hope that it will be useful, but WITHOUT
+X;;;; ANY WARRANTY.  No author or distributor accepts responsibility to anyone
+X;;;; for the consequences of using it or for whether it serves any particular
+X;;;; purpose or works at all, unless he says so in writing.  Refer to the GNU
+X;;;; Emacs General Public License for full details.
+X;;;;
+X;;;; Everyone is granted permission to copy, modify and redistribute GNU
+X;;;; Emacs, but only under the conditions described in the GNU Emacs General
+X;;;; Public License.  A copy of this license is supposed to have been given
+X;;;; to you along with GNU Emacs so you can know your rights and
+X;;;; responsibilities.  It should be in a file named COPYING.  Among other
+X;;;; things, the copyright notice and this notice must be preserved on all
+X;;;; copies.
+X;;;;
+X;;;;===========================================================================
+X;;;;
+X
+X;; window-list is from 18.55 distributions's saveconf.el; it's included here
+X;; so users don't need to load saveconf just to use other functions in this
+X;; file.
+X
+X(defun window-list (&optional mini)
+X  "Returns a list of Lisp window objects for all Emacs windows.
+XOptional first arg MINIBUF t means include the minibuffer window
+Xin the list, even if it is not active.  If MINIBUF is neither t
+Xnor nil it means to not count the minibuffer window even if it is active."
+X  (let* ((first-window
+X	  (next-window (previous-window (selected-window)) mini))
+X	 (windows (cons first-window nil))
+X	 (current-cons windows)
+X	 (w (next-window first-window mini)))
+X    (while (not (eq w first-window))
+X      (setq current-cons (setcdr current-cons (cons w nil)))
+X      (setq w (next-window w mini)))
+X    windows))
+X
+X(defun get-buffer-windows (buffer)
+X  "Return a list of all windows currently displaying BUFFER, which
+Xcan be a buffer or a buffer name."
+X  (and (stringp buffer)
+X       (setq buffer (or (get-buffer buffer)
+X			(error "No buffer named %s" buffer))))
+X  (let ((windows nil))
+X    (mapcar
+X     (function
+X      (lambda (window)
+X	(and (eq (window-buffer window) buffer)
+X	     (setq windows (cons window windows)))))
+X     (window-list))
+X    windows))
+X
+X(defun top-window ()
+X  "Return the topmost window in Emacs' screen."
+X  (let (window)
+X    (mapcar (function (lambda (w)
+X			(and (= 0 (nth 1 (window-edges w)))
+X			     (setq window w))))
+X	    (window-list))
+X    window))
+X
+X(defun display-buffer-excluding-windows (buffer &optional minibuf &rest
+X						excluded-windows)
+X  "Display but don't select BUFFER in some window other than WINDOWS
+X\(third and following args\).  Optional second arg MINIBUF t means
+Xminibuffer window can be used, even if it is not active.  MINIBUF
+Xneither t nor nil means to not use the minibuffer window even if it is
+Xactive.
+X
+XIf no windows other than WINDOWS exist and none of WINDOWS can be
+Xsplit, the largest of WINDOWS is used.
+X
+XElements in WINDOWS can be null.
+X
+XReturns the window displaying BUFFER."
+X  (let ((possible-windows (window-list minibuf))
+X	(window (get-buffer-window buffer))
+X	(selected-window (selected-window)))
+X    (or window
+X	;;
+X	;; Filter out excluded-windows from possible-windows
+X	;;
+X	(progn
+X	  (mapcar
+X	   (function
+X	    (lambda (w)
+X	      (setq possible-windows
+X		    (delq w possible-windows))))
+X	   excluded-windows)
+X	  (if possible-windows
+X	      (setq window (car possible-windows))
+X	    ;;
+X	    ;; Pick the biggest window and split it
+X	    ;;
+X	    (let ((max-size 0))
+X	      (mapcar
+X	       (function
+X		(lambda (w)
+X		  (let ((size (* (window-width w) (window-height w))))
+X		    (and (> size max-size)
+X			 (setq window w)))))
+X	       excluded-windows)
+X	      ;;
+X	      ;; Make sure the window is big enough to split.  If it's not, the
+X	      ;; request can't be satisfied; just use the biggest window.
+X	      ;;
+X	      (and (>= (window-height window) (* 2 window-min-height))
+X		   (setq window (split-window window)))))))
+X    
+X    (select-window window)
+X    (switch-to-buffer buffer)
+X    (select-window selected-window)
+X    window))
+X
+X(provide 'window-manip-fns)
+END_OF_FILE
+if test 4250 -ne `wc -c <'window-manip-fns.el'`; then
+    echo shar: \"'window-manip-fns.el'\" unpacked with wrong size!
+fi
+# end of 'window-manip-fns.el'
+fi
+echo shar: End of archive 1 \(of 2\).
+cp /dev/null ark1isdone
+MISSING=""
+for I in 1 2 ; do
+    if test ! -f ark${I}isdone ; then
+	MISSING="${MISSING} ${I}"
+    fi
+done
+if test "${MISSING}" = "" ; then
+    echo You have unpacked both archives.
+    rm -f ark[1-9]isdone
+else
+    echo You still need to unpack the following archives:
+    echo "        " ${MISSING}
+fi
+##  End of shell archive.
+exit 0
+
+#! /bin/sh
+# This is a shell archive.  Remove anything before this line, then unpack
+# it by saving it into a file and typing "sh file".  To overwrite existing
+# files, type "sh file -c".  You can also feed this as standard input via
+# unshar, or by typing "sh <file", e.g..  If this archive is complete, you
+# will see the following message at the end:
+#		"End of archive 2 (of 2)."
+# Contents:  compile2.el
+# Wrapped by nsd@nsd.bbc.com on Thu Oct 14 22:59:34 1993
+PATH=/bin:/usr/bin:/usr/ucb ; export PATH
+if test -f 'compile2.el' -a "${1}" != "-c" ; then 
+  echo shar: Will not clobber existing file \"'compile2.el'\"
+else
+echo shar: Extracting \"'compile2.el'\" \(80386 characters\)
+sed "s/^X//" >'compile2.el' <<'END_OF_FILE'
+X;;;; Run commands asynchronously and parse error messages.
+X;;;;
+X;;;; Distributed with compile2 version 2.07
+X;;;; Copyright Nick Duffek, 1993
+X;;;;
+X;;;; This file is not part of GNU Emacs.  However, the following applies as
+X;;;; if it were:
+X;;;;
+X;;;; GNU Emacs is distributed in the hope that it will be useful, but WITHOUT
+X;;;; ANY WARRANTY.  No author or distributor accepts responsibility to anyone
+X;;;; for the consequences of using it or for whether it serves any particular
+X;;;; purpose or works at all, unless he says so in writing.  Refer to the GNU
+X;;;; Emacs General Public License for full details.
+X;;;;
+X;;;; Everyone is granted permission to copy, modify and redistribute GNU
+X;;;; Emacs, but only under the conditions described in the GNU Emacs General
+X;;;; Public License.  A copy of this license is supposed to have been given
+X;;;; to you along with GNU Emacs so you can know your rights and
+X;;;; responsibilities.  It should be in a file named COPYING.  Among other
+X;;;; things, the copyright notice and this notice must be preserved on all
+X;;;; copies.
+X;;;;
+X;;;;===========================================================================
+X;;;;
+X;;;; Drop-in replacement for the Emacs distribution's compile.el.
+X
+X;;; Notes to coders
+X;;; ---------------
+X;;;
+X;;; - Most functions in this file use macros that declare-object defines on
+X;;;   the fly and that only exist either while byte-compiling or after
+X;;;   evaluating the entire file.  So, evaluating the whole file before
+X;;;   calling a function you've changed avoids "Symbol's function definition
+X;;;   is void" errors.
+X;;;
+X;;;   Most names with the form c2-NAME-FIELD and c2-set-NAME-FIELD are macros
+X;;;   that declare-object generates.
+X;;;
+X;;; - Public identifiers almost always begin with compile-, and private ones
+X;;;   with c2-.
+X
+X(require 'declare-object)
+X(require 'hlist)
+X(require 'command-window)
+X(require 'generic-filter)
+X(require 'request-directory)
+X(require 'window-manip-fns)
+X
+X;;; User-configurable variables
+X
+X(defvar compile-window-height-hook
+X  (function (lambda ()
+X	      "Eight lines or one-fifth screen height, whichever is larger."
+X	      (max 8 (/ (screen-height) 5))))
+X  "*Function which returns suggested height of compilation window.")
+X
+X(defvar compile-mode-line-format
+X  (function (lambda (n)
+X	      (format "  %d Compilation%s" n (if (> n 1) "s" ""))))
+X  "*Function that returns a string to display in the mode line when the
+Xnumber of active compilations N is greater than zero.")
+X
+X(defvar compile-lines-above-current-err 1
+X  "*Number of lines left visible above current error in compilation window.")
+X
+X(defvar compile-mrkr-overlay-text ">"
+X  "*String to overlay in compilation buffer at current compilation error
+X\(nil for none\).")
+X
+X(defvar compile-message-indent 2
+X  "*Number of columns to indent messages compile2 successfully parses.")
+X
+X(defvar compile-grep-command "egrep"
+X  "*Program the grep \(\\[grep]\) command runs.")
+X
+X(defvar compile-ignore-grep-window t
+X  "*Non-nil suppresses grep window display when jumping to grep hits via
+X\\[compile-next-error], \\[compile-previous-error], or
+X\\[compile-current-error].  Non-t also suppresses display when invoking
+Xgrep.")
+X
+X(defvar compile-command-initial-input nil
+X  "*Non-nil means \\[compile] from a non-compilation buffer inserts the value
+Xof compile-command in the minibuffer before reading a new command, and from a
+Xcompilation buffer inserts that compilation's command.")
+X
+X(defvar compile-command "make -k"
+X  "*Last compilation command; default for next compilation.")
+X
+X(defvar compile-save-buffers t
+X  "*t unconditionally saves all modified buffers before \\[compile]
+X\(compile\) or \\[grep] \(grep\), non-t and non-nil asks before saving each
+Xbuffer, nil saves no buffers.")
+X
+X(defvar compile-buffer-name-prefix nil
+X  "*String, for example \"*\", to prepend to the names of compile buffers to
+Xdifferentiate them from ordinary buffers.")
+X
+X(defvar compile-silently-favor-cwd nil
+X  "*Tells \\[compile] \(compile\) and \\[grep] \\(grep\\) whether to silently
+Xfavor a compilation with the current buffer's directory even when a
+Xcompilation with the same name already exists in a different directory:
+X - nil means always ask for confirmation before using the current buffer's
+X   directory instead of the most recent matching compilation's
+X - non-nil and non-t means don't ask for confirmation if a compilation with
+X   the same name in the current directory already exists
+X - t means always use the current directory without asking for confirmation")
+X
+X(defvar compile-recycle-buffer-threshold nil
+X  "*Number of compilation buffers to create before recycling finished
+Xcompilation buffers.  Nil inhibits buffer recycling.")
+X
+X(defvar compile-display-if-none-visited t
+X  "*Non-nil tells \\[compile-current-error] \(current error\) \(and
+X\\[compile-next-error] \(next error\) with prefix arg 0\) to display the
+Xcompilation buffer if no errors in the current compilation have been visited
+Xyet.")
+X
+X(defvar compile-bind-to-db-regex "make\\>\\|cc\\>"
+X  "*Regex matching substrings in commands of compilations which should be
+Xbound to the current db debugging session \(if any\).")
+X
+X(defvar compile-filename-filter nil
+X  "*If non-nil, function that modifies FILENAME, from error message parsed by
+Xcompilation process, before the process loads the file with that name. 
+XFunction need not save and restore match-data.
+X
+XLocal within compilation buffers.")
+X
+X(defvar compile-dont-parse nil
+X  "*Non-nil means don't parse compilation process output.  Useful for
+Xrepeatedly testing programs whose output coincidentally looks like error
+Xmessages to compile.
+X
+XLocal within compilation buffers.")
+X
+X(defvar compile-marking-inform-threshold 500
+X  "*Display informational message when generating markers for files with this
+Xmany or more errors.")
+X
+X(defvar compile-start-hook nil
+X  "*List of functions to call just after a compilation process starts.")
+X
+X(defvar compile-exit-hook nil
+X  "*List of functions to call just after a compilation process exits.")
+X
+X(defvar compile-search-dirs '(("." 1))
+X  "*List of \(DIRECTORY DEPTH\) pairs, where DIRECTORY is a directory to
+Xbreadth-first search when unable to find an error message's file, and DEPTH
+Xis the maximum number of DIRECTORY's subdirectories to search.
+X
+XZero DEPTH searches DIRECTORY but none of its subdirectories, and nonnumeric
+XDEPTH searches subdirectories with no depth limit.
+X
+XLocal within compilation buffers.")
+X
+X;;; Parsing table and associated code adapted from mult-compile.el written by
+X;;; wolfgang@wsrc2.com (Wolfgang S. Rupprecht).
+X
+X(defvar compile-error-parse-regexps
+X  (`
+X   (;;
+X    ;; rule 0 -- line LINE of "FILE"
+X    ;;
+X    ;; 'line 18 of "foo.c": i undefined' (4.3bsd compiler)
+X    ;; 'byacc: e - line 94 of "cpp.y", $5 (sc_args) untyped' (berkeley yacc)
+X    ;;
+X    (".*line \\([0-9]+\\) of \"\\([^\"\n]+\\)\"[:,]" 2 1)
+X    ;;
+X    ;; rule 1 -- "FILE", line LINE
+X    ;;
+X    ;; 'cc: "mode.h", line 78: warning 546: Enumeration type clash.' (hpux)
+X    ;; '"spl.i" line 23,  Error:  syntax error.' (unknown)
+X    ;; '(as) "spl.i", line 23:  Error:  syntax error.' (unknown)
+X    ;; '"./foo.h", line 128: redeclaration of bar' (unknown)
+X    ;; 'f682: "/usr/include/errno.h", line 15: Error: ...' (Glockenspiel C++
+X    ;;    compiler 2.0 -- Amir J. Katz)
+X    ;;
+X    ((, (concat "\\(cc: \\|f...: \\|(.+)[ \t]+\\)?"
+X		"\"\\([^\"\n]+\\)\" ?,?[ \t]+"
+X		"line[ \t]+\\([0-9]+\\)")) 2 3)
+X    ;;
+X    ;; rule 2 -- "FILE" LINE,COLUMN:
+X    ;;
+X    ;; 'lout "t.lout" 35,5: symbol @RawTaggedList unknown or misspelt' (lout)
+X    ("lout \"\\([^\n\"]+\\)\" \\([0-9]+\\),[0-9]+" 1 2)
+X    ;;
+X    ;; rule 3 -- file FILE at line LINE
+X    ;;
+X    ;; 'syntax error in file x.pl at line 2, next token "@Includes"' (perl)
+X    ;;
+X    (".* in file \\([^ ]+\\) at line \\([0-9]+\\)," 1 2)
+X    ;;
+X    ;; rule 4 -- FILE: .* at line LINE:
+X    ;;
+X    ;; './uugo: syntax error at line 5: `newline or ;' unexpected' (/bin/sh)
+X    ;;
+X    ("\\([^:\n]+\\):.* at line \\([0-9]+\\):" 1 2)
+X    ;;
+X    ;; rule 5 -- at FILE line LINE
+X    ;;
+X    ;; 'Possible typo: "a" at t.pl line 8.' (perl -w)
+X    ;;
+X    (".* at \\([^ \n]+\\) line \\([0-9]+\\)" 1 2)
+X    ;;
+X    ;; rule 6 -- FILE, line LINE:
+X    ;;
+X    ;; 'devl.cob, line 13: Compilation abort' (accucobl -- Allan Johannesen)
+X    ;; 'fort: Severe: foo.f, line 2: Missing op' (Ultrix C -- also A.J.)
+X    ;;
+X    ("\\(.* \\)?\\([^ \n,]+\\), line \\([0-9]+\\): " 2 3)
+X    ;;
+X    ;; rule 7 -- FILE:LINE:
+X    ;;
+X    ;; 'x.c:19: parse error before `char'' (GNU software)
+X    ;; 'p_slip.c:277 (p_slip.o): Undefined symbol' (GNU ld)
+X    ;;
+X    ("\\([^ :\n]+\\):\\([0-9]+\\)\\( ([^ \n\)]+)\\)?:" 1 2)
+X    ;;
+X    ;; rule 8 -- FILE(LINE)
+X    ;;
+X    ;; 'rand   llib-lc(345) :: uuq.c?(73)' (sysV lint -- kamat@uceng.uc.edu)
+X    ;; 'rcmd         cico.c?(243)' (sysV)
+X    ;; 'foo.c(8): warning: w may be used before set' (4.3bsd grep, compile,
+X    ;;    lint part 1)
+X    ;; 'strcmp: variable # of args.      llib-lc(359)  ::  foo.c(8)' (4.3bsd
+X    ;;    lint part 2)
+X    ;; 'i defined( foo.c(4) ), but never used' (4.3bsd lint part 3)
+X    ;; 'i used( foo.c(144) ), but not defined' (4.3bsd lint part 3)
+X    ;;
+X    (".*\\(^\\| \\)\\([^( ?\n]+\\)\\??(\\([0-9]+\\))" 2 3)
+X    ;;
+X    ;; rule 9 -- make -f FILE \n+ line LINE
+X    ;; 'Make: line 20: syntax error.  Stop.' (Make)
+X    ;; 'Make: Must be a separator on rules line 84.  Stop.' (Make)
+X    ;;
+X    ("[\* \t]*make: [^\n]*line[ \t]+\\([0-9]+\\)[.:]" scan-make 1)
+X    ;;
+X    ;; rule 10 -- FILE \n+ (LINE)
+X    ;;
+X    ;; 'cico.c
+X    ;;  ==============
+X    ;;  (88)  warning: alias unused in function main
+X    ;;  (656)  warning: main() returns random value to invocation environment
+X    ;;  cntrl.c:
+X    ;;
+X    ;;  uucpd.c
+X    ;;  ==============
+X    ;;  warning: argument unused in function:
+X    ;;      (48)  argc in main
+X    ;;  warning: possible pointer alignment problem
+X    ;;      (145)            (246)           (329)  
+X    ;;      (367)' (sysV lint)
+X    ;;
+X    ;; Note:  This regexp has to be incredibly weak.  There just isn't much
+X    ;; to get a toe-hold on here.  Better keep this one on the end. -wsr
+X    ;;
+X    ("[ \t]*(\\([0-9]+\\))[ \t]" scan-s5lint 1)
+X    ;;
+X    ;; Add other rules and explanations before the preceding rule.
+X    ))
+X  "*A list of lists consisting of
+X\(\(rexexp filename-match-index line1-match-index\)\(...\)\(...\)\)
+Xfor parsing error messages.
+X
+XGuidelines for adding regular expressions:
+X - Regular expressions only match text at the beginning of a line, so prefix
+X   \".*\" to expressions intended to match beyond beginning-of-line.
+X - For the same reason, \"^\" at the start of an expression is redundant, and
+X   should be omitted.
+X - Always include \\n inside square-bracketed character ranges, to avoid
+X   confusing the parsing mechanism by matching beyond end-of-line.
+X - If possible, modify an existing expression that almost performs the
+X   appropriate matches rather than creating a new one.
+X - Position new regular expressions later in the list than more rigid regular
+X   expressions -- ones less prone to spurious matches -- and earlier than
+X   less rigid ones.
+X - To include your modifications in the next release, please email them to
+X   the author, Nick Duffek, at nsd@nsd.bbc.com.
+X - Function c2-test-parse may be helpful.")
+X
+X;;; Non-user-configurable variables:
+X
+X(defconst c2-previous-version (and (boundp 'c2-version) c2-version)
+X  "Version of compile2 package that was active before most recent load.")
+X
+X(defconst c2-version "2.07"
+X  "Current version number of compile2 package.")
+X
+X(defvar c2-cns nil
+X  "Hlist of compilations.")
+X
+X(defvar c2-global-buf-cache nil
+X  "Global cache that associates files found by scanning the filesystem to
+Xtheir buffers.")
+X
+X;; Keep ignore files separate from buffer cache just for simplicity and
+X;; clarity: global buffer cache maps names and search contexts to buffers,
+X;; and ignore-files list maps names to flags.
+X
+X(defvar c2-global-ignore-files nil
+X  "Hlist of files to ignore in compilation error messages.")
+X
+X(defvar c2-buffer-to-cn-map nil
+X  "Mapping from compilation buffers to their compilations.")
+X
+X(defvar c2-buffer-to-ferrlists-map nil
+X  "Mapping from buffers to compilation-specific lists of errors in those
+Xbuffers' files.")
+X
+X(defvar compile-mode-line-compilations nil
+X  "Mode-line control for displaying number of active compilation processes.
+XNil when no compilations are active.")
+X
+X(defvar c2-nr-active-compilations 0
+X  "Number of active compilation processes.  Used for updating
+Xglobal-mode-string.")
+X
+X(defconst c2-huge-pos-int (ash 1 22)
+X  "Huge positive integer.")
+X(defconst c2-huge-neg-int (- c2-huge-pos-int)
+X  "Huge negative integer.")
+X
+X;;; End of variables section
+X
+X;;; Define maps between arbitrary objects.
+X
+X(defun c2-map-create ()
+X  "Create and return a new map."
+X  (hlist-create nil))
+X
+X(defun c2-map-insert (map key val)
+X  "In MAP associate KEY with VAL."
+X  (hlist-insert map (cons key val)))
+X
+X(defun c2-map-lookup (map key)
+X  "Return value associated in MAP associate with KEY."
+X  (let ((key-val (hlist-find map (function (lambda (key-val)
+X					     (eq (car key-val) key))))))
+X    (and key-val (cdr key-val))))
+X
+X(defun c2-map-delete (map key)
+X  "In MAP unassociate KEY with any value."
+X  (hlist-delete map (function (lambda (key-val) (eq (car key-val) key)))))
+X
+X(defun c2-map-map (fxn map)
+X  "Apply FUNCTION to each element in MAP.  FUNCTION accepts two arguments, a
+Xkey and its corresponding value.  Return nil."
+X  ;;
+X  ;; Name first arg FXN instead of FN because hlist-map has a local variable
+X  ;; called FN which would occlude the FN in this lexical scope.
+X  ;;
+X  ;; I wish elisp would scope lexically instead of dynamically.
+X  ;;
+X  (hlist-map (function (lambda (key-val)
+X			 (apply fxn (car key-val) (cdr key-val) nil)))
+X	     map))
+X
+X;;; New compile2 versions may change object definitions, so reinitialize
+X;;; global structures when loading a new version to prevent new object macros
+X;;; from incorrectly accessing old objects.
+X
+X(or (and c2-previous-version (string= c2-previous-version c2-version))
+X    (setq c2-cns (hlist-create nil)
+X	  c2-global-buf-cache (make-vector 101 nil)
+X	  c2-global-ignore-files (hlist-create nil)
+X	  c2-buffer-to-cn-map (c2-map-create)
+X	  c2-buffer-to-ferrlists-map (c2-map-create)))
+X
+X(or global-mode-string (setq global-mode-string '("")))
+X(or (memq 'compile-mode-line-compilations global-mode-string)
+X    (setq global-mode-string
+X	  (nconc global-mode-string '(compile-mode-line-compilations))))
+X
+X;; Define objects on the fly at compile-time.  Changing their definitions may
+X;; require resetting c2-cns to (hlist-create nil) to prevent new object
+X;; macros from incorrectly accessing old objects.
+X
+X(eval-when-compile
+X  ;; compilation object
+X  (declare-object 'c2 'cn
+X    '(command msg-descrip process buffer db-sn killed-db-sn errs indents
+X	      beyond-last-err output-begin output-end files-hashtable
+X	      buf-cache ignore-files current-mrkr no-errs-seen-yet save-first
+X	      ignore-window can-compile-again name-of-mode user-aware-of-errs
+X	      recyclable))
+X  
+X  ;; error object
+X  (declare-object 'c2 'err
+X    '(files lines mrkrs cn-mrkr))
+X  
+X  ;; objects to which c2-global-buf-cache associates files
+X  (declare-object 'c2 'fscached
+X    '(buffer directory search-dirs))
+X
+X  ;; compilation- and file-specific list of errors
+X  (declare-object 'c2 'ferrlist
+X    '(reverted ignore-modtime errs buf)))
+X
+X;; Prevent compiler complaints that hooks into debugger package are not known
+X;; to be defined:
+X(eval-when-compile
+X  (mapcar (function (lambda (fn) (or (fboundp fn) (fset fn nil))))
+X	  '(db-c2-sn-is-alive db-quit-sn db-restart-sn db-current-sn
+X			      db-c2-sn-cn db-c2-set-sn-cn)))
+X
+X(defmacro c2-buffer-killed-p (buffer)
+X  "Return whether BUFFER has been killed."
+X  (` (null (buffer-name (, buffer)))))
+X
+X(defun c2-make-cn-current (cn)
+X  "Make CN be the current compilation."
+X  (hlist-insert c2-cns cn 'no-duplicates))
+X
+X(defsubst c2-get-buffer-cn (buffer)
+X  "Return cn associated with BUFFER, or nil if none."
+X  (c2-map-lookup c2-buffer-to-cn-map buffer))
+X
+X(defsubst c2-current-cn (&optional noerr)
+X  "Return the current buffer's compilation if it has one, otherwise return
+Xthe most recently accessed compilation.  Optional argument NOERR non-nil
+Xmeans just return nil without error if there are no compilations."
+X  (c2-expunge-killed-cns)
+X  (let ((cn (or (c2-get-buffer-cn (current-buffer))
+X		(hlist-first c2-cns))))
+X    (if (not cn)
+X	(or noerr (error "No compilations currently exist"))
+X      (c2-make-cn-current cn))
+X    cn))
+X
+X(defsubst c2-process-is-alive (process)
+X  "Return t if PROCESS' status is 'stop or 'run, nil otherwise."
+X  (or (eq (process-status process) 'stop)
+X      (eq (process-status process) 'run)))
+X
+X(defun c2-get-cn-by-name (command)
+X  "Retrieve cn named COMMAND."
+X  ;; Can't simply find buffer named COMMAND and call c2-get-buffer-cn
+X  ;; because buffer name could have "<n>" appended (e.g., if another buffer
+X  ;; named COMMAND existed prior to cn's creation).
+X  (hlist-find c2-cns
+X	      (function (lambda (cn)
+X			  (string= (c2-cn-command cn) command)))))
+X
+X(defmacro c2-get-cn-directory (cn)
+X  "Return COMPILATION's directory."
+X  (` (save-excursion
+X       (set-buffer (c2-cn-buffer (, cn)))
+X       default-directory)))
+X
+X(defun c2-get-cn-by-name-and-directory (command directory)
+X  "Retrieve cn named COMMAND with directory DIRECTORY."
+X  (hlist-find c2-cns
+X	      (function
+X	       (lambda (cn)
+X		 (and (string= (c2-cn-command cn) command)
+X		      (string= (c2-get-cn-directory cn) directory))))))
+X
+X(defun c2-recycle-buffers ()
+X  "Delete as many recyclable inactive compilation buffers as necessary to
+Xreduce the total number to one less than compile-recycle-buffer-threshold,
+Xstarting with the oldest compilations."
+X  ;; Caller's caller called c2-expunge-killed-cns already.
+X  ;;
+X  ;; Slightly inefficient because (hlist-length c2-cns) can be greater than
+X  ;; the number of recyclable buffers when user has parsed output in regular
+X  ;; (not compilation) buffer.  Solution of keeping recyclable and
+X  ;; nonrecyclable compilations in separate lists doesn't seem worth the
+X  ;; extra complication.
+X  
+X  (let ((excess (- (hlist-length c2-cns)
+X		   (1- compile-recycle-buffer-threshold))))
+X    (and (> excess 0)
+X	 (hlist-map-reverse
+X	  (function (lambda (cn)
+X		      (and (> excess 0)
+X			   (not (and (c2-cn-process cn)
+X				     (c2-process-is-alive (c2-cn-process cn))))
+X			   (progn
+X			     (setq excess (1- excess))
+X			     (and (c2-cn-recyclable cn)
+X				  ;; Killing buffer will eventually trigger
+X				  ;; appropriate cleanup via
+X				  ;; expunge-killed-cns.
+X				  (kill-buffer (c2-cn-buffer cn)))))))
+X	  c2-cns))))
+X
+X(defun c2-new-cn (command directory msg-descrip ignore-window
+X			  can-compile-again name-of-mode save-first
+X			  inhibit-recycle buffer recyclable)
+X  "Create, initialize, and return a new compilation with invocation string
+XCOMMAND."
+X  (and (not inhibit-recycle)
+X       (not buffer)
+X       (integerp compile-recycle-buffer-threshold)
+X       (c2-recycle-buffers))
+X  
+X  (let ((cn (c2-create-cn)))
+X    (or buffer
+X	(setq buffer (generate-new-buffer
+X		      (concat (or compile-buffer-name-prefix "") command))))
+X    (c2-set-cn-command cn command)
+X    (c2-set-cn-buffer cn buffer)
+X    (save-excursion (set-buffer buffer) (setq default-directory directory))
+X    (c2-set-cn-errs cn (hlist-create nil))
+X    (c2-set-cn-files-hashtable cn (make-vector 101 nil))
+X    (c2-set-cn-ignore-files cn (hlist-create nil))
+X    (c2-set-cn-beyond-last-err cn (make-marker))
+X    (c2-set-cn-output-begin cn (make-marker))
+X    (c2-set-cn-output-end cn (make-marker))
+X    
+X    (c2-set-cn-msg-descrip cn (or msg-descrip "error"))
+X    (c2-set-cn-ignore-window cn ignore-window)
+X    (c2-set-cn-can-compile-again cn can-compile-again)
+X    (c2-set-cn-name-of-mode cn name-of-mode)
+X    ;; for use by compile-again:
+X    (c2-set-cn-save-first cn save-first)
+X    (c2-set-cn-recyclable cn recyclable)
+X    
+X    (c2-map-insert c2-buffer-to-cn-map buffer cn)
+X    
+X    cn))
+X
+X(defun c2-truncate-name (name len)
+X  "If NAME's length exceeds LEN, truncate it to LEN and append an ellipsis."
+X  (if (> (length name) len)
+X      (concat (substring name 0 len) "...")
+X    name))
+X
+X(defun c2-breadth-first-search (file dir depth)
+X  "Perform a breadth-first search for FILE in DIRECTORY, descending at most
+XDEPTH directories below DIRECTORY.  Zero DEPTH searches DIRECTORY but none of
+Xits subdirectories, and nonnumeric DEPTH searches subdirectories to arbitrary
+Xdepth.
+X
+XReturn FILE's full path, or nil on failure to locate FILE."
+X  (let ((dirs (list (expand-file-name dir)))
+X	(continue t)
+X	(path nil))
+X    (while continue
+X      
+X      ;; Look for FILE in each directory in DIRS
+X      (mapcar (function
+X	       (lambda (dir)
+X		 (let ((default-directory dir))
+X		   (or path (and (file-exists-p file)
+X				 (setq path (expand-file-name file)))))))
+X	      dirs)
+X      
+X      (if (or path (and (integerp depth)
+X			(progn (setq depth (1- depth))
+X			       (< depth 0))))
+X	  (setq continue nil)
+X	
+X	;; Collect directories one level down into DIRS
+X	(let ((parents dirs))
+X	  (setq dirs nil)
+X	  (mapcar
+X	   (function
+X	    (lambda (parent)
+X	      (condition-case nil
+X		  (let ((files (directory-files parent))
+X			(default-directory parent))
+X		    (mapcar
+X		     (function
+X		      (lambda (file)
+X			(and (file-directory-p file)
+X			     (not (string= "." file))
+X			     (not (string= ".." file))
+X			     (setq dirs (cons (expand-file-name file) dirs)))))
+X		     files))
+X		(file-error nil))))
+X	   parents))
+X	
+X	(or dirs (setq continue nil))))
+X    
+X    path))
+X
+X(defsubst c2-ignoring-file (file ignore-files-table)
+X  "Return whether FILE is in IGNORE-FILES-TABLE."
+X  (and (not (hlist-emptyp ignore-files-table))
+X       (hlist-find ignore-files-table
+X		   (function (lambda (f) (string= f file))))))
+X
+X(defsubst c2-ignoring-file-locally (file cn)
+X  "Return whether references to FILE in COMPILATION's error messages are
+Xignored."
+X  (c2-ignoring-file file (c2-cn-ignore-files cn)))
+X
+X(defsubst c2-ignoring-file-globally (file)
+X  "Return whether references to FILE in compilation error messages are
+Xglobally ignored."
+X  (c2-ignoring-file file c2-global-ignore-files))
+X
+X(defsubst c2-ignore-file (file ignore-files-table)
+X  "Add FILE to IGNORE-FILES-TABLE."
+X  (hlist-insert ignore-files-table file))
+X
+X(defsubst c2-ignore-file-locally (file cn)
+X  "Ignore references to FILE in COMPILATION's error messages."
+X  (c2-ignore-file file (c2-cn-ignore-files cn)))
+X
+X(defsubst c2-ignore-file-globally (file)
+X  "Globally ignore references to FILE in compilation error messages."
+X  (c2-ignore-file file c2-global-ignore-files))
+X
+X(defsubst c2-unignore-file (file ignore-files-table)
+X  "Remove FILE from IGNORE-FILES-TABLE."
+X  (hlist-delete ignore-files-table (function (lambda (f) (string= f file)))))
+X
+X(defsubst c2-unignore-file-locally (file cn)
+X  "Stop ignoring references to FILE in COMPILATION's error messages."
+X  (c2-unignore-file file (c2-cn-ignore-files cn)))
+X
+X(defsubst c2-unignore-file-globally (file)
+X  "Stop globally ignoring references to FILE in compilation error messages."
+X  (c2-unignore-file file c2-global-ignore-files))
+X
+X(defun c2-read-err-file (prompt)
+X  "Read file name as a string from minibuffer, prompting with PROMPT and
+Xdefaulting to the first file of the error at point in the current
+Xcompilation's buffer."
+X  (let* ((cn (c2-current-cn))
+X	 (err-at-point (and cn (c2-possible-err-near-point cn nil)))
+X	 (default (and err-at-point (car (c2-err-files err-at-point))))
+X	 file)
+X    (and compile-filename-filter
+X	 (setq default (apply compile-filename-filter default nil)))
+X    (setq file
+X	  (read-string
+X	   (concat prompt (if default (format "(default %s) " default) ""))))
+X    (if (string= file "") default file)))
+X
+X(defun compile-ignore-file (file &optional unignore)
+X  "Ignore references to FILE in compilation error messages.  Prefix-arg
+Xnon-nil stops ignoring references to FILE."
+X  (interactive
+X   (let* ((unignore current-prefix-arg)
+X	  (file (c2-read-err-file
+X		 (format "%s file: " (if unignore "Stop ignoring" "Ignore")))))
+X     (list file unignore)))
+X  (let ((cn (c2-current-cn)))
+X    (if unignore
+X	(cond ((c2-ignoring-file-locally file cn)
+X	       (c2-unignore-file-locally file cn)
+X	       (message "No longer ignoring %s in %s"
+X			file (buffer-name (c2-cn-buffer cn))))
+X	      ((c2-ignoring-file-globally file)
+X	       (c2-unignore-file-globally file)
+X	       (message "No longer globally ignoring %s" file))
+X	      (t
+X	       (error "Wasn't ignoring %s" file)))
+X      (cond ((y-or-n-p "Ignore file in all compilations? ")
+X	     (c2-ignore-file-globally file))
+X	    ((y-or-n-p "Ignore in current compilation only? ")
+X	     (c2-ignore-file-locally file cn))
+X	    (t
+X	     (error "Not ignoring file"))))))
+X
+X;; Kludge alert!!!
+X
+X;; There seems to be no sanctioned method for compiling code generated on the
+X;; fly during compilation.  However, the following seems to work: within an
+X;; eval-when-compile form, insert the code at the end of the current buffer,
+X;; which happens to be the " *Compiler Input*" buffer.
+X
+X;; Here's the version of eval-then-compile for use during compilation:
+X(eval-when-compile
+X  (defmacro eval-then-compile (form)
+X    "Evaluate FORM, then compile or evaluate the result respectively during
+Xcompilation or evaluation."
+X    (` (eval-when-compile
+X	 (save-excursion
+X	   (goto-char (point-max))
+X	   (insert (prin1-to-string (, form))))))))
+X
+X;; ...and here's the version for use during normal evaluation:
+X(eval '(defmacro eval-then-compile (form)
+X	 "Evaluate FORM, then compile or evaluate the result respectively
+Xduring compilation or evaluation."
+X	 (eval (, form))))
+X
+X;; Modify revert-buffer to set the reverted flags of all file error lists
+X;; bound to the current buffer.  Thanks to ange-ftp for the original idea and
+X;; part of the implementation of modifying functions.
+X(eval-then-compile
+X  (` (defun c2-revert-buffer (&rest args)
+X       (, (concat (documentation 'revert-buffer)
+X		  "
+X--
+XNote:  This function has been modified to work with compile2."))
+X       (interactive)
+X       (let ((val (apply c2-orig-revert-buffer args))
+X	     (ferrlists (c2-map-lookup c2-buffer-to-ferrlists-map
+X				       (current-buffer))))
+X	 (and ferrlists
+X	      (hlist-map
+X	       (function (lambda (ferrlist)
+X			   (c2-set-ferrlist-ignore-modtime ferrlist nil)
+X			   (c2-set-ferrlist-reverted ferrlist t)))
+X	       ferrlists))
+X	 val))))
+X
+X;; Redefine revert-buffer during first load only to avoid stacking calls to
+X;; c2-revert-buffer.
+X
+X;; Bind revert-buffer to c2-revert-buffer's symbol rather than its function
+X;; definition to allow redefining c2-revert-buffer later in the same Emacs
+X;; session without searching through revert-buffer's function chain for the
+X;; old definition.
+X
+X(defvar c2-orig-revert-buffer nil
+X  "Function bound to revert-buffer before loading compile2.")
+X
+X(or c2-orig-revert-buffer
+X    (progn (setq c2-orig-revert-buffer (symbol-function 'revert-buffer))
+X	   (fset 'revert-buffer 'c2-revert-buffer)))
+X
+X(defun c2-expunge-global-buf-cache ()
+X  "Remove references to killed buffers from global buffer cache."
+X  ;; Discards references that would otherwise survive until Emacs terminates.
+X  (mapatoms
+X   (function (lambda (sym)
+X	       (let ((found-killed nil))
+X		 (mapcar
+X		  (function (lambda (fscached)
+X			      (and (c2-buffer-killed-p
+X				    (c2-fscached-buffer fscached))
+X				   (setq found-killed t))))
+X		  (symbol-plist sym))
+X		 (and found-killed
+X		      (let ((expunged nil))
+X			(mapcar
+X			 (function (lambda (fscached)
+X				     (or (c2-buffer-killed-p
+X					  (c2-fscached-buffer fscached))
+X					 (setq expunged (cons fscached
+X							      expunged)))))
+X			 (symbol-plist sym))
+X			(setplist sym expunged))))))
+X   c2-global-buf-cache))
+X
+X(defun c2-find-file-noselect (file cn ferrlist)
+X  "Return but do not select a buffer on FILE, which COMPILATION's FERRLIST
+Xcontains, or nil if FILE should be ignored or cannot be found.
+X
+XFirst look in the current directory, then search directories in
+Xcompile-search-dirs, and finally ask the user where the file exists."
+X
+X  ;; FILE is always whatever the error message parser extracted.
+X  ;;
+X  ;; To avoid time-consuming filesystem searches and redundant interactive
+X  ;; queries each time the user jumps to an error,
+X  ;;  - associate in global c2-global-buf-cache each successful {FILE,
+X  ;;    default-directory, compile-search-dirs ambient value} search context
+X  ;;    to its resulting buffer
+X  ;;  - associate in compilation-local c2-cn-buf-cache each successful user
+X  ;;    query context to its resulting buffer
+X  ;;
+X  ;; Cache filesystem searches globally because the search results for a
+X  ;; given {FILE, default-directory, compile-search-dirs ambient value}
+X  ;; search context are independent of which compilation invoked the search.
+X  ;;
+X  ;; Query results may differ depending on the compilation that invokes the
+X  ;; query, however, so cache them locally to each compilation.
+X  ;;
+X  ;; Associating FILE to its buffer rather than to its full path gives the
+X  ;; user a way to force a re-search, by simply killing FILE's buffer.
+X
+X  ;; Use buffer-local values of compile-filename-filter and
+X  ;; compile-search-dirs:
+X  (save-excursion
+X    (set-buffer (c2-cn-buffer cn))
+X    
+X    (and compile-filename-filter
+X	 (setq file (apply compile-filename-filter file nil)))
+X    
+X    (let ((buf
+X	   
+X	   ;; First, check whether ignoring file.  Would check
+X	   ;; compile-ignore-file-regexp here.
+X	   (if (or (c2-ignoring-file-locally file cn)
+X		   (c2-ignoring-file-globally file))
+X	       nil
+X	     
+X	     (or
+X	      
+X	      ;; Second, look in compilation-local cache
+X	      (let* ((name-and-buf (assoc file (c2-cn-buf-cache cn)))
+X		     (buf (and name-and-buf (cdr name-and-buf))))
+X		(and buf (not (c2-buffer-killed-p buf))
+X		     buf))
+X	      
+X	      ;; Third, look in global cache
+X	      (let ((buf nil))
+X		(mapcar
+X		 (function (lambda (fscached)
+X			     (and (string= (c2-fscached-directory fscached)
+X					   default-directory)
+X				  (eq (c2-fscached-search-dirs fscached)
+X				      compile-search-dirs)
+X				  (not buf)
+X				  (not (c2-buffer-killed-p
+X					(c2-fscached-buffer fscached)))
+X				  (setq buf (c2-fscached-buffer fscached)))))
+X		 (symbol-plist (intern file c2-global-buf-cache)))
+X		buf)
+X	      
+X	      ;; Remaining methods try to get buffer via full path
+X	      (let* ((path
+X		      
+X		      ;; Fourth, search filesystem
+X		      (cond ((file-exists-p file) file)
+X			    ((file-name-absolute-p file) nil)
+X			    
+X			    ;; search compile-search-dirs
+X			    (t (message "Searching for %s..." file)
+X			       (let ((path nil)
+X				     (dirs compile-search-dirs))
+X				 (while (and dirs (null path))
+X				   (let* ((search-dir (car dirs))
+X					  (dir (nth 0 search-dir))
+X					  (depth (nth 1 search-dir)))
+X				     (setq dirs (cdr dirs)
+X					   path (c2-breadth-first-search
+X						 file dir depth))))
+X				 (message "Searching for %s...%s" file
+X					  (if path "done" "failed"))
+X				 path))))
+X		     
+X		     (found-via-search (not (null path))))
+X		
+X		;; Fifth and last, query user
+X		(or found-via-search
+X		    (setq path
+X			  (cond
+X			   ((y-or-n-p (format "\
+XCannot find %s.  Ignore in all compilations? " file))
+X			    
+X			    (c2-ignore-file-globally file)
+X			    nil)
+X			   
+X			   ((y-or-n-p "Ignore in current compilation only? ")
+X			    (c2-ignore-file-locally file cn)
+X			    nil)
+X			   
+X			   (t (read-file-name (format "Path to %s: " file)
+X					      default-directory nil t)))))
+X		
+X		(and path
+X		     (let ((buf (or (get-file-buffer path)
+X				    (find-file-noselect path))))
+X		       
+X		       ;; Store buffer in cache
+X		       (if (not found-via-search)
+X			   ;; cache locally
+X			   (c2-set-cn-buf-cache cn (cons (cons file buf)
+X							 (c2-cn-buf-cache cn)))
+X			 ;; cache globally.  Ought to expunge table entries
+X			 ;; containing killed buffers.
+X			 (let ((global-cache-sym
+X				(intern file c2-global-buf-cache)))
+X			   (setplist global-cache-sym
+X				     (cons (let ((fscached (c2-create-fscached)))
+X					     (c2-set-fscached-buffer
+X					      fscached buf)
+X					     (c2-set-fscached-directory
+X					      fscached default-directory)
+X					     (c2-set-fscached-search-dirs
+X					      fscached compile-search-dirs)
+X					     fscached)
+X					   (symbol-plist global-cache-sym)))))
+X		       buf)))))))
+X      
+X      (and buf
+X	   (progn
+X	     (or (verify-visited-file-modtime buf)
+X		 
+X		 ;; Only ask whether to revert once per compilation per
+X		 ;; reversion.
+X		 (and (c2-ferrlist-ignore-modtime ferrlist)
+X		      (not (c2-ferrlist-reverted ferrlist)))
+X		 
+X		 (c2-set-ferrlist-ignore-modtime
+X		  ferrlist
+X		  ;; Ask whether to revert buffer via find-file-noselect to
+X		  ;; avoid duplicating code and ensure a consistent user
+X		  ;; interface.
+X		  (progn (setq buf (find-file-noselect (buffer-file-name buf)))
+X			 (not (verify-visited-file-modtime buf)))))
+X	     
+X	     buf)))))
+X
+X(defun c2-associate-ferrlist-with-buf (ferrlist buf)
+X  "Globally associate FERRLIST with BUFFER."
+X  (let ((ferrlists (c2-map-lookup c2-buffer-to-ferrlists-map buf)))
+X    (or ferrlists
+X	(progn (setq ferrlists (hlist-create nil))
+X	       (c2-map-insert c2-buffer-to-ferrlists-map buf ferrlists)))
+X    (hlist-insert ferrlists ferrlist)))
+X
+X(defun c2-unassociate-ferrlist-with-buf (ferrlist)
+X  "Globally unassociate FERRLIST with its buffer."
+X  (and (c2-ferrlist-buf ferrlist)
+X       (let* ((buf (c2-ferrlist-buf ferrlist))
+X	      (ferrlists (c2-map-lookup c2-buffer-to-ferrlists-map buf)))
+X	 (and ferrlists (hlist-delete ferrlists
+X				      (function (lambda (f)
+X						  (eq f ferrlist))))))))
+X
+X(defun c2-mark-err (cn err)
+X  "Try to ensure COMPILATION's ERR has valid markers for each of its files.
+XReturn whether ERR has valid markers in a buffer on at least one of its
+Xfiles, which is equivalent to whether user doesn't want to ignore all of
+XERR's files."
+X  ;;
+X  ;; Actually, try to ensure all COMPILATION's errs with the same files as
+X  ;; ERR have valid markers, so user can edit buffers on those files without
+X  ;; screwing up errors farther down in the same buffer.
+X  ;;
+X  ;; Fails only on failure to find any of ERR's files.
+X  ;;
+X  (let ((default-directory (c2-get-cn-directory cn))
+X	(has-valid-markers nil)
+X	(i 0)
+X	file mrkr)
+X    
+X    ;; c2-err-mrkrs may change from nil to a list of markers after the first
+X    ;; iteration, so access it sequentially via nth rather than via cdr.
+X    
+X    (while (setq file (nth i (c2-err-files err)))
+X      (setq mrkr (nth i (c2-err-mrkrs err)))
+X      (setq i (1+ i))
+X      
+X       (let* (
+X	      ;; filter stored errs in CN on this file in list attached to
+X	      ;; file's name in cn's files-hashtable
+X	      (ferrlist
+X	       (symbol-plist (intern file (c2-cn-files-hashtable cn))))
+X	      
+X	      ;; To immediately detect ignored files or changes to
+X	      ;; default-directory or compile-search-dirs, always locate buffer
+X	      ;; via c2-find-file-noselect, even when mrkr points to a
+X	      ;; nondeleted buffer.
+X	      (buf (c2-find-file-noselect file cn ferrlist))
+X	      
+X	      ;; Must check ferrlist-reverted after c2-find-file-noselect
+X	      ;; because c2-revert-buffer from find-file-noselect may set it.
+X	      (reverted (c2-ferrlist-reverted ferrlist)))
+X
+X	 (or (null buf)
+X	     (and mrkr (eq (marker-buffer mrkr) buf)
+X		  (not reverted)
+X		  (setq has-valid-markers t))
+X	     
+X	     ;; [Re-]mark all messages in buf.
+X	     (progn
+X	       
+X	       ;; Set reverted flag when reverting and clear (1) when setting
+X	       ;; to new buffer and (2) after re-marking all errs below.
+X	       ;;
+X	       ;; Set ignore-modtime flag from c2-find-file-noselect only and
+X	       ;; clear when (1) setting to new buffer and (2) reverting.
+X	       
+X	       (or (eq buf (c2-ferrlist-buf ferrlist))
+X		   ;; Globally associate BUF with FERRLIST so c2-revert-buffer
+X		   ;; can update FERRLIST's revert flag.
+X		   (progn
+X		     (c2-set-ferrlist-reverted ferrlist nil)
+X		     (c2-set-ferrlist-ignore-modtime ferrlist nil)
+X		     (c2-unassociate-ferrlist-with-buf ferrlist)
+X		     (c2-associate-ferrlist-with-buf ferrlist buf)
+X		     (c2-set-ferrlist-buf ferrlist buf)))
+X	       
+X	       (let ((inform-marking
+X		      (>= (length ferrlist) compile-marking-inform-threshold))
+X		     ;; Moving to each error's line number from the previous
+X		     ;; error's is noticeably faster than moving from the
+X		     ;; beginning of the file.
+X		     prev-err-line)
+X		 
+X		 (and inform-marking
+X		      (message "Marking errors in file %s..." file))
+X		 
+X		 ;; ...move to the buffer containing those errors' file
+X		 (save-excursion
+X		   (set-buffer buf)
+X		   (save-restriction
+X		     (widen)
+X		     (goto-char (point-min))
+X		     (setq prev-err-line 1)
+X		     
+X		     ;; ...and generate markers for those errs.
+X		     (mapcar
+X		      (function
+X		       (lambda (err-plus-index)
+X			 (let* ((err (car err-plus-index))
+X				(i (cdr err-plus-index))
+X				(mrkrs (c2-err-mrkrs err)))
+X			   
+X			   (or mrkrs
+X			       ;; Haven't yet generated any markers for this
+X			       ;; err -- create a list of as many as will
+X			       ;; ultimately be needed.
+X			       ;;
+X			       ;; Lazily create markers here rather than in
+X			       ;; the filter, to avoid overloading the filter
+X			       ;; and seriously degrading Emacs response
+X			       ;; time.
+X			       ;;
+X			       (let ((nmrkrs (length (c2-err-files err))))
+X				 (while (> nmrkrs 0)
+X				   (setq mrkrs (cons (make-marker) mrkrs))
+X				   (setq nmrkrs (1- nmrkrs)))
+X				 (c2-set-err-mrkrs err mrkrs)))
+X			   
+X			   ;; Point the marker at the appropriate line in buf
+X			   ;; if it's not already attached to a buffer (as it
+X			   ;; can be if user looked at first error in a file
+X			   ;; before filter parsed all errors for that file).
+X			   
+X			   (let ((mrkr (nth i (c2-err-mrkrs err))))
+X			     (or (and (eq (marker-buffer mrkr) buf)
+X				      (not reverted))
+X				 (let* ((err-line (nth i (c2-err-lines err)))
+X					;; Error messages sometimes
+X					;; (incorrectly) specify line numbers
+X					;; beyond end-of-file.
+X					(beyond-eob
+X					 (forward-line
+X					  (- err-line prev-err-line))))
+X				   (setq prev-err-line
+X					 (- err-line beyond-eob))
+X				   (move-marker mrkr (point))))))))
+X		      
+X		      (c2-ferrlist-errs ferrlist))))
+X		 
+X		 (and inform-marking
+X		      (message "Marking errors in file %s...done" file)))
+X		
+X	       ;; Don't clear reverted until after marking all errors, since
+X	       ;; user may keyboard-quit while marking them.
+X	       (and reverted (c2-set-ferrlist-reverted ferrlist nil))
+X	       
+X	       (setq has-valid-markers t)))))
+X    
+X    has-valid-markers))
+X
+X(defun compile-again ()
+X  "Restart compilation in current buffer if buffer is a restartable
+Xcompilation, otherwise restart the most recent restartable compilation.
+X
+XAs of this writing, all compilations other than those started by \\[grep]
+X\(grep\) are restartable."
+X  (interactive)
+X  (let ((cn (c2-current-cn 'noerr)))
+X    (if (and cn (or (c2-cn-can-compile-again cn)
+X		    (setq cn (hlist-find c2-cns
+X					 (function
+X					  (lambda (cn)
+X					    (c2-cn-can-compile-again cn)))))))
+X	(c2-run cn)
+X      (call-interactively 'compile))))
+X
+X;; Choose compilation during M-x compile: if default-directory is not the
+X;; same as that of the top compilation matching the name, ask whether to
+X;; compile in the current dir before going with the top one.
+X;;
+X;; What if there is a compilation matching default-directory and the name,
+X;; but it isn't the top one?  Should we prompt?  ...or silently choose the
+X;; one matching both the directory and the name?  I'd say prompt, but could
+X;; add an option to turn off prompt if matches nontop compilation.
+X;;
+X;; Choosing during M-x grep: same behavior until someone complains.
+X
+X(defun grep (args &optional prefix-arg)
+X  "Run the program specified by the compile-grep-command variable
+Xasynchronously with specified ARGS, collecting output in a buffer.  While or
+Xafter grep executes, compile-next-error \(\\[compile-next-error]\) and
+Xcompile-previous-error \(\\[compile-previous-error]\) find the text to which
+Xerrors refer.
+X
+XOptional prefix arg positive prompts for directory in which to execute
+XCOMMAND, and negative prevents recycling an old compilation buffer to create
+Xa new one."
+X  (interactive
+X   (list (read-string (concat compile-grep-command " "))
+X	 current-prefix-arg))
+X  (and (string= args "") (error "No arguments given"))
+X  (c2-run (c2-get-cn-create
+X	   (concat compile-grep-command " -n " args " /dev/null")
+X	   prefix-arg
+X	   (concat compile-grep-command " hit")
+X	   compile-save-buffers compile-ignore-grep-window nil nil)))
+X
+X(defun compile (command &optional prefix-arg)
+X  "Execute COMMAND asynchronously, collecting output in a buffer.  While or
+Xafter COMMAND executes, compile-next-error \(\\[compile-next-error]\) and
+Xcompile-previous-error \(\\[compile-previous-error]\) find the text to which
+Xerrors refer.
+X
+XOptional prefix arg positive prompts for directory in which to execute
+XCOMMAND, and negative prevents recycling an old compilation buffer to create
+Xa new one.
+X
+XFrom a program, PREFIX-ARG is the second argument."
+X  ;;
+X  ;; If compile-command-initial-input, explicitly use compile-command instead
+X  ;; of (hlist-first c2-cns), because some users set compile-command locally
+X  ;; depending on language.
+X  ;;
+X  (interactive
+X   (list (read-string "Compile command: "
+X		      (and compile-command-initial-input
+X			   (let ((cn (c2-get-buffer-cn (current-buffer))))
+X			     (if (and cn (c2-cn-command cn))
+X				 (c2-cn-command cn)
+X			       compile-command))))
+X	 current-prefix-arg))
+X  (setq compile-command command)
+X  (and (string= command "") (error "No command given"))
+X  (c2-run (c2-get-cn-create command prefix-arg "error"
+X			    compile-save-buffers nil t nil)))
+X
+X(defun c2-get-cn-create (command prefix-arg msg-descrip save-first
+X				 ignore-window can-compile-again name-of-mode)
+X  "Find compilation matching COMMAND, or create one if none exists.
+X
+XPREFIX-ARG positive prompts for directory in which to execute COMMAND, and
+Xnegative prevents recycling an old compilation buffer to create a new one.
+X
+XIf PREFIX-ARG doesn't request directory prompting and directory of most
+Xrecent compilation matching COMMAND differs from current buffer's directory,
+Xmaybe invoke a compilation in the current buffer's directory instead,
+Xdepending on several factors including variable compile-silently-favor-cwd's
+Xvalue.
+X
+XRemaining arguments:
+X
+X- MSG-DESCRIP is a short string describing messages COMMAND generates, e.g.
+X  \"grep hit\".  Defaults to \"error\"
+X- SAVE-FIRST t means first save all buffers without asking, nil means don't
+X  save any buffers, non-nil and non-t means ask before saving each buffer
+X- IGNORE-WINDOW non-nil suppresses display of compilation window by
+X  compile-next-error, compile-previous-error, and compile-current-error
+X- CAN-COMPILE-AGAIN non-nil means compile-again may restart compilation
+X- NAME-OF-MODE is the compilation buffer's mode name.  Defaults to
+X  \"Compile\""
+X
+X  ;; If directory specified, use or make a cn named COMMAND with that
+X  ;; directory.  If directory isn't specified, use or make a cn named
+X  ;; COMMAND, using default-directory if one needs to be made.
+X  
+X  (c2-expunge-killed-cns)
+X  (let* ((request-directory (and prefix-arg
+X				 (>= (prefix-numeric-value prefix-arg) 0)))
+X	 (inhibit-recycle (and prefix-arg
+X			       (< (prefix-numeric-value prefix-arg) 0)))
+X	 (directory (if request-directory (request-directory "In directory: ")
+X		      default-directory))
+X	 cn)
+X    (if (or request-directory (eq t compile-silently-favor-cwd))
+X	(setq cn (c2-get-cn-by-name-and-directory command directory))
+X      (setq cn (c2-get-cn-by-name command))
+X      (and cn (not (string= (c2-get-cn-directory cn) default-directory))
+X	   (let ((cwd-cn (c2-get-cn-by-name-and-directory command directory)))
+X 	     (and (or (and cwd-cn (not (or (eq nil compile-silently-favor-cwd)
+X 					   (eq t compile-silently-favor-cwd))))
+X		      (y-or-n-p "\
+XUse current directory instead of most recent matching compilation's? "))
+X		  (setq cn cwd-cn)))))
+X    
+X    (or cn (c2-new-cn command directory (or msg-descrip "error")
+X		      ignore-window can-compile-again name-of-mode save-first
+X		      inhibit-recycle nil t))))
+X
+X(defun c2-run (cn)
+X  "Run COMPILATION."
+X  (and (c2-cn-process cn) (c2-process-is-alive (c2-cn-process cn))
+X       (cond ((y-or-n-p
+X	       "A compilation process is running; kill and restart it? ")
+X	      
+X	      ;; Cannot use kill-process, it doesn't trigger the sentinel until
+X	      ;; after the return to top level, resulting in the sentinel
+X	      ;; appending its "killed at <time>" message to the startup text
+X	      ;; we write below when invoking the new process.
+X	      
+X	      ;; delete-process, on the other hand, kills its process argument
+X	      ;; and immediately triggers sentinel.
+X	      
+X	      (and (c2-cn-process cn)	;; may have finished during y-or-n-p
+X		   (delete-process (c2-cn-process cn))))
+X	     
+X	     ((y-or-n-p
+X	       "Create a parallel compilation? ")
+X	      (setq cn
+X		    (c2-new-cn (c2-cn-command cn) (c2-get-cn-directory cn)
+X			       (c2-cn-msg-descrip cn) (c2-cn-ignore-window cn)
+X			       (c2-cn-can-compile-again cn)
+X			       (c2-cn-name-of-mode cn) (c2-cn-save-first cn)
+X			       ;; Inhibit recycling on this rare occasion
+X			       ;; rather than risking deleting a precious
+X			       ;; buffer.
+X			       t
+X			       nil t)))
+X	     (t (error "New compilation not started"))))
+X  
+X  (and (c2-cn-save-first cn)
+X       (save-some-buffers (eq (c2-cn-save-first cn) t)))
+X  
+X  (let ((command (c2-cn-command cn))
+X	(inhibit-quit t)
+X	(start-buffer (current-buffer))
+X	process)
+X    
+X    (c2-set-cn-user-aware-of-errs cn nil)
+X    (c2-clear-errors cn)
+X    (c2-make-cn-current cn)
+X    
+X    ;; ignore-window non-t and non-nil means ignore window even upon
+X    ;; invocation.
+X    (or (and (not (null (c2-cn-ignore-window cn)))
+X	     (not (eq t (c2-cn-ignore-window cn))))
+X	(c2-display-cn-window cn))
+X    
+X    (unwind-protect
+X	(progn
+X	  (set-buffer (c2-cn-buffer cn))
+X	  (erase-buffer)
+X	  (insert "cd " default-directory "\n" command "\n")
+X	  
+X	  (setq process
+X		(start-process command (c2-cn-buffer cn)
+X			       shell-file-name "-c" command))
+X	  (or compile-dont-parse
+X	      (set-process-filter process 'c2-filter))
+X	  (set-process-sentinel process 'c2-sentinel)
+X	  (set-marker (process-mark process) (point))
+X	  (set-marker (c2-cn-beyond-last-err cn) (point))
+X	  (set-marker (c2-cn-output-begin cn) (point))
+X	  ;; Make output-end the same as the process-mark while the process is
+X	  ;; active.  Set it to its own marker in sentinel, since process-mark
+X	  ;; disappears when a sentineled process exits.
+X	  (set-marker (c2-cn-output-end cn) nil)
+X	  (c2-set-cn-output-end cn (process-mark process))
+X	  (compile-mode))
+X      
+X      ;; Make point in all windows on this compilation be point-max.
+X      (let ((point-max (point-max)))
+X	(mapcar (function (lambda (window)
+X			    (set-window-point window point-max)))
+X		(get-buffer-windows (current-buffer))))
+X      (set-buffer start-buffer))
+X    
+X    (c2-increment-active-cns 1)
+X    (c2-set-cn-process cn process)
+X    (c2-maybe-bind-to-db cn)
+X    (let ((sn (c2-cn-db-sn cn)))
+X      (and sn (db-c2-sn-is-alive sn)
+X	   ;; kill the sn for restarting when the compilation completes
+X	   ;; successfully.
+X	   (progn
+X	     (db-quit-sn sn)
+X	     (c2-set-cn-killed-db-sn cn t)))))
+X  (run-hooks 'compile-start-hook))
+X
+X(defun compile-kill-compilation (n)
+X  "Kill the processes of the prefix-arg N most recent active \\[compile] or
+X\\[grep] commands."
+X  (interactive "p")
+X  (c2-expunge-killed-cns)
+X  (let ((remaining n)
+X	cn)
+X    (while (and (> remaining 0)
+X		(setq cn
+X		      (hlist-find
+X		       c2-cns
+X		       (function (lambda (cn)
+X				   (let ((p (c2-cn-process cn)))
+X				     (and p (c2-process-is-alive p))))))))
+X      (setq remaining (1- remaining))
+X      (interrupt-process (c2-cn-process cn)))
+X    (and (> remaining 0)
+X	 (if (< remaining n) 
+X	     (error "No more compilations with active processes")
+X	   (if (hlist-first c2-cns)
+X	       (error "No compilations with active processes")
+X	     (error "No compilations currently exist"))))))
+X
+X(defun compile-delete-compilation (name)
+X  "Delete compilation BUFFER and its associated compilation."
+X  ;;
+X  ;; Cannot delete compilations based on command string, since command string
+X  ;; isn't necessarily unique.
+X  ;;
+X  (interactive
+X   (progn
+X     (list (let* ((default-cn (c2-current-cn))
+X		  (default-name (buffer-name (c2-cn-buffer default-cn)))
+X		  (name (read-buffer
+X			 (format "Delete compilation: (default %s) "
+X				 (c2-truncate-name default-name 20)))))
+X	     (or name default-name)))))
+X  
+X  (let ((buffer (get-buffer name)))
+X    (or (and buffer (c2-get-buffer-cn buffer))
+X	(error "No compilations named %s" name))
+X  
+X    ;; Killing buffer will eventually trigger appropriate cleanup via
+X    ;; sentinel and expunge-killed-cns.
+X    (kill-buffer buffer)))
+X
+X;; May want to make compilation current when interrupting or killing it.
+X(defun c2-interrupt-process ()
+X  "Interrupt current buffer's process."
+X  (interactive)
+X  (interrupt-process nil t))
+X
+X(defun c2-kill-process ()
+X  "Kill current buffer's process."
+X  (interactive)
+X  (kill-process nil t))
+X
+X(defun compile1 (command error-message &optional name-of-mode)
+X  "Backwards compatibility for functions that use the Emacs 18 distribution
+Xcompile package's undocumented compile1 function."
+X  (c2-run (c2-get-cn-create
+X	   command
+X	   ;; Don't recycle buffers, since callers have no way of inhibiting
+X	   ;; recycling.
+X	   (integerp compile-recycle-buffer-threshold)
+X	   (and (string-match "No more \\(.+\\)'?s" error-message)
+X		(substring error-message (match-beginning 1) (match-end 1)))
+X	   'query-save-buffers nil
+X	   (not (string-match "^grep" command))
+X	   name-of-mode)))
+X
+X(defun c2-clear-error (err)
+X  "Free up whatever resources ERR consumes."
+X  (mapcar (function (lambda (mrkr) (set-marker mrkr nil)))
+X	  (c2-err-mrkrs err))
+X  (and (c2-err-cn-mrkr err) (set-marker (c2-err-cn-mrkr err) nil)))
+X
+X(defun c2-clear-errors (cn)
+X  "Forget about all errors in COMPILATION."
+X  ;; ... deleting their markers in the process.
+X  (c2-set-cn-no-errs-seen-yet cn t)
+X  (hlist-map 'c2-clear-error (c2-cn-errs cn))
+X  (mapatoms
+X   (function (lambda (file-sym)
+X	       (and file-sym
+X		    (let ((ferrlist (symbol-plist file-sym)))
+X		      (and ferrlist
+X			   (c2-unassociate-ferrlist-with-buf ferrlist))
+X		      (setplist file-sym nil)))))
+X   (c2-cn-files-hashtable cn))
+X  (mapcar (function (lambda (indent-mrkrs)
+X		      (set-marker (car indent-mrkrs) nil)
+X		      (set-marker (cdr indent-mrkrs) nil)))
+X	  (c2-cn-indents cn))
+X  (c2-set-cn-indents cn nil)
+X  (hlist-clear (c2-cn-errs cn)))
+X
+X(defmacro c2-parse-region (begin end buffer check-for-read-only)
+X  "Add error messages in region between BEGIN and END to BUFFER's
+Xcompilation.  If CHECK-FOR-READ-ONLY is non-nil, ensure BUFFER is not
+Xread-only before indenting successfully parsed messages.
+X
+XInvoked by c2-filter, among other functions.
+X
+XEvaluate to whether successfully parsed last line in region, for c2-filter's
+Xsake.  To speed up c2-filter, assume \(1\) BEGIN precedes END and \(2\)
+Xcurrent buffer has a compilation."
+X  ;; Implement as macro so that c2-filter can set end to (point-max) without
+X  ;; end migrating backward as we insert indentation spaces.
+X  (` (let ((cn (c2-get-buffer-cn (, buffer)))
+X	   (parsed t))
+X       (goto-char (, begin))
+X       (while (< (point) (, end))
+X	 
+X	 (while (and (null (setq parsed (c2-parse-line)))
+X		     (progn (forward-line 1)
+X			    (< (point) (, end)))))
+X	 
+X	 ;; Could do multi-line error messages by (1) using prefixize-regexp,
+X	 ;; (2) moving up a line before starting this loop (duplicates get
+X	 ;; filtered out below), (3) remembering the most recently parsed error
+X	 ;; and moving back to just after it before starting this loop.
+X	 
+X	 (and parsed
+X	      (let* ((errs (c2-cn-errs cn))
+X		     (err (hlist-last errs))
+X		     (files (car parsed))
+X		     (lines (cdr parsed))
+X		     (err-mrkr (copy-marker (point))))
+X		
+X		;; Indent to make errors more obvious.  Byte-compiler
+X		;; optimizes out read-only check if check-for-read-only
+X		;; is nil.
+X		(and (not (and (, check-for-read-only)
+X			       buffer-read-only))
+X		     (progn (insert-char ?  compile-message-indent)
+X			    (let ((indent-mrkr (copy-marker (point))))
+X			      ;; Remember indentation's beginning and end to
+X			      ;; allow reliable unindenting in compile-reparse.
+X			      (c2-set-cn-indents
+X			       cn (cons (cons err-mrkr indent-mrkr)
+X					(c2-cn-indents cn))))))
+X		
+X		;; Avoid redundant error markers for multiple errors at same
+X		;; file and lineno
+X		(or (and err
+X			 (equal files (c2-err-files err))
+X			 (equal lines (c2-err-lines err)))
+X		    
+X		    ;; Allocate new err and associate it with its
+X		    ;; filename(s).
+X		    
+X		    (progn
+X		      (setq err (c2-create-err files lines nil err-mrkr))
+X		      
+X		      ;; Make sure user knows there are now errors (s)he
+X		      ;; hasn't yet seen.
+X		      ;;
+X		      ;; user-aware-of-errs becomes nil when (1) compilation
+X		      ;; starts, (2) after user visits last error when
+X		      ;; compilation window is visible, and (3) user
+X		      ;; attempts to visit beyond-last error.
+X		      ;;
+X		      ;; It becomes t again here, whenever the next error
+X		      ;; arrives.
+X		      
+X		      (and (not (c2-cn-user-aware-of-errs cn))
+X			   (progn
+X			     (c2-set-cn-user-aware-of-errs cn t)
+X			     (or (get-buffer-window (, buffer))
+X				 (progn
+X				   (ding)
+X				   (message "found%s %ss in \"%s\""
+X					    (if (c2-cn-no-errs-seen-yet cn)
+X						"" " more")
+X					    (c2-cn-msg-descrip cn)
+X					    (c2-cn-command cn))))))
+X		      
+X		      (hlist-insert-last errs err)
+X		      
+X		      ;; Add each of err's files and their indices to the
+X		      ;; appropriate ferrlist object in COMPILATION's err
+X		      ;; filename hashtable.
+X		      
+X		      (let ((hashtable (c2-cn-files-hashtable cn))
+X			    (i 0)
+X			    file ferrlist)
+X			(while files
+X			  (setq file (car files))
+X			  (setq files (cdr files))
+X			  (setq ferrlist
+X				(symbol-plist (intern file hashtable)))
+X			  (or ferrlist (progn
+X					 (setq ferrlist (c2-create-ferrlist))
+X					 (setplist (intern file hashtable)
+X						   ferrlist)))
+X			  (let ((err-plus-index (cons err i)))
+X			    (setq i (1+ i))
+X			    (c2-set-ferrlist-errs
+X			     ferrlist
+X			     (cons err-plus-index
+X				   (c2-ferrlist-errs ferrlist))))))))
+X		
+X		(forward-line 1)
+X		(move-marker (c2-cn-beyond-last-err cn) (point)))))
+X       
+X       ;; Evaluate to whether successfully parsed last line in region.
+X       parsed)))
+X
+X(defun compile-unparse ()
+X  "Unindent and forget about errors in current buffer's compilation.
+XRecommended before adding errors and reparsing via \\[compile-reparse]."
+X  ;; Use COMPILATION's list of indentation markers to distinguish between
+X  ;; spaces we added, spaces the user added, and spaces which migrated to
+X  ;; just after the user deleted intervening text.
+X  (interactive)
+X  (let ((cn (or (c2-get-buffer-cn (current-buffer))
+X		(error "No compilation associated with this buffer"))))
+X    (save-excursion
+X      (mapcar (function (lambda (indent-mrkrs)
+X			  (let ((begin (car indent-mrkrs))
+X				(end (cdr indent-mrkrs)))
+X			    (goto-char end)
+X			    (beginning-of-line)
+X			    (if (and (looking-at " +")
+X				     (>= (- (match-end 0) (point))
+X					 compile-message-indent))
+X				(delete-char compile-message-indent)
+X			      (goto-char begin)
+X			      (and (bolp)
+X				   (looking-at " +")
+X				   (>= (- (match-end 0) (point))
+X				       compile-message-indent)
+X				   (delete-char compile-message-indent))))))
+X	      (c2-cn-indents cn)))
+X    (c2-clear-errors cn)))
+X
+X(defun compile-parse-region (begin end)
+X  "Parse region as compilation output and visit its first error."
+X  (interactive "r")
+X  (let ((cn (c2-get-buffer-cn (current-buffer))))
+X    (or cn (setq cn (c2-new-cn nil default-directory "message"
+X			       compile-ignore-grep-window
+X			       nil nil nil t (current-buffer) t)))
+X    (c2-make-cn-current cn)
+X    (let ((begin-mrkr (c2-cn-output-begin cn))
+X	  (end-mrkr (c2-cn-output-end cn)))
+X      ;; Convert BEGIN and END to markers before invoking compile-unparse,
+X      ;; which could otherwise make BEGIN or END incorrect by modifying the
+X      ;; current buffer.
+X      (set-marker begin-mrkr begin)
+X      (set-marker end-mrkr end)
+X      (save-excursion
+X	(compile-unparse)
+X	(c2-parse-region begin-mrkr end-mrkr (current-buffer) t))))
+X  (compile-next-error 1))
+X
+X(defun compile-parse-buffer ()
+X  "Parse current buffer as compilation output and visit its first error."
+X  (interactive)
+X  (compile-parse-region (point-min) (point-max)))
+X
+X(defun compile-parse-shell-output ()
+X  "Parse most recent shell output as compilation output and visit its first
+Xerror."
+X  (interactive)
+X  (or (and (boundp 'last-input-end)
+X	   last-input-end
+X	   (eq (marker-buffer last-input-end) (current-buffer)))
+X      (error "Cannot parse shell output in nonshell buffer"))
+X  (compile-parse-region last-input-end (point-max)))
+X
+X(defun compile-reparse ()
+X  "Reparse input to current buffer's compilation.  See also compile-unparse."
+X  (interactive)
+X  (compile-unparse)
+X  (let ((cn (or (c2-get-buffer-cn (current-buffer))
+X		(error "No compilation associated with this buffer"))))
+X    (let ((begin-mrkr (c2-cn-output-begin cn))
+X	  (end-mrkr (c2-cn-output-end cn)))
+X      (save-excursion
+X	(c2-parse-region begin-mrkr end-mrkr (current-buffer) t)))))
+X
+X(defun c2-filter (process output)
+X  "Filter function for compilation processes.  Parses and remembers error
+Xmessages as they appear."
+X  (generic-filter c2-filter process output buffer nil
+X    
+X    ;; Invariant: at eob if successfully parsed last [partial] line,
+X    ;; otherwise at bol.  (Must not parse the same line twice, because the
+X    ;; spaces we prepend upon successful parsing can modify parsing
+X    ;; behavior.)
+X    
+X    ;; Insert all output at end of compilation buffer, parse to end of
+X    ;; buffer, then maintain invariant by moving to beginning of last line if
+X    ;; didn't successfully parse it.
+X    
+X    (save-excursion (goto-char (point-max)) (insert output))
+X    (or (bolp)
+X	;; Already parsed the last line in spite of missing its tail; skip
+X	;; over its tail.
+X	(forward-line 1))
+X    
+X    (let ((parsed-last-line
+X	   (c2-parse-region (point) (point-max) buffer nil)))
+X      
+X      ;; Maintain invariant that position upon entry to filter is at bol if
+X      ;; didn't successfully parse last line.
+X      (or parsed-last-line (beginning-of-line)))))
+X
+X(defun c2-sentinel (process change)
+X  "Sentinel function for compilation processes.  Display message if
+Xcompilation window is not visible, and restart associated debugger process,
+Xif any."
+X  (let* ((inhibit-quit nil)
+X	 (buffer (process-buffer process))
+X	 (cn (c2-get-buffer-cn buffer))
+X	 (deactivated nil))
+X    (if (c2-buffer-killed-p buffer)
+X	(progn
+X	  (setq deactivated t)
+X	  (set-process-buffer process nil)
+X	  (message (format "Compilation process %s killed (deleted buffer)"
+X			   (process-name process))))
+X      (let (state)		;; string describing new compilation state
+X	(save-excursion
+X	 (set-buffer buffer)
+X	 
+X	 ;; Unconditionally update the mode line to reflect process' new
+X	 ;; status, and generate a message to inform user of change if buffer
+X	 ;; isn't visible
+X	 
+X	 (setq mode-line-process
+X	       (concat ": " (symbol-name (process-status process))))
+X	 ;; Force mode line redisplay soon
+X	 (set-buffer-modified-p (buffer-modified-p))
+X	 (setq state (substring change 0 -1))
+X	 (and (null (get-buffer-window buffer))
+X	      (message "\"%s\" %s" (c2-cn-command cn) state)))
+X	
+X	;; Clean up if process exited or died
+X	
+X	(and (memq (process-status process) '(signal exit))
+X	     (let* ((obuf (current-buffer))
+X		    omax opoint)
+X	       (setq deactivated t)
+X	       
+X	       ;; save-excursion isn't the right thing if process-buffer is
+X	       ;; current-buffer
+X	       (unwind-protect
+X		   (progn
+X		     (set-buffer buffer)
+X		     (setq omax (point-max) opoint (point))
+X		     (goto-char (point-max))
+X		     ;; Set output-end to its own marker, since process-mark
+X		     ;; disappears when a sentineled process exits.
+X		     (c2-set-cn-output-end cn (copy-marker (point)))
+X		     (insert "\n" state " at "
+X			     (substring (current-time-string) 0 -5)
+X			     "\n"))
+X		 
+X		 ;; Delete process now so doesn't stay around until
+X		 ;; M-x list-processes
+X		 (delete-process process)
+X		 (c2-set-cn-process cn nil))
+X	       
+X	       (if (and opoint (< opoint omax))
+X		   (goto-char opoint))
+X	       (set-buffer obuf)))))
+X
+X    (and (c2-cn-db-sn cn)
+X	 deactivated
+X	 (= (process-exit-status process) 0)
+X	 ;; sn shouldn't be alive, but check anyway:
+X	 (not (db-c2-sn-is-alive (c2-cn-db-sn cn)))
+X	 ;; restart if we killed it
+X	 (c2-cn-killed-db-sn cn)
+X	 (progn
+X	   (db-restart-sn (c2-cn-db-sn cn))
+X	   (c2-set-cn-killed-db-sn cn nil)))
+X    
+X    (and deactivated
+X	 (progn
+X	   (c2-increment-active-cns -1)
+X	   (run-hooks 'compile-exit-hook)))))
+X
+X(defun c2-maybe-bind-to-db (cn)
+X  "Maybe associate COMPILATION with the current debugger session."
+X  ;;
+X  ;; If (1) cn doesn't already have a db sn and (2) cn's command
+X  ;; string matches compile-bind-to-db-regex and (3) there's a current
+X  ;; db sn and (4) the current db sn doesn't yet have an
+X  ;; associated compilation, bind cn to the sn.
+X  ;;
+X  (and (featurep 'db)
+X       (null (c2-cn-db-sn cn))
+X       (string-match compile-bind-to-db-regex (c2-cn-command cn))
+X       (let ((sn (db-current-sn)))
+X	 (and sn
+X	      (db-c2-sn-is-alive sn)
+X	      (null (db-c2-sn-cn sn))
+X	      (progn
+X		(db-c2-set-sn-cn sn cn)
+X		(c2-set-cn-db-sn cn sn))))))
+X
+X;;; Hooks into db package:
+X
+X(defun c2-db-cn-sn (cn)
+X  "Return debugger session associated with COMPILATION."
+X  (c2-cn-db-sn cn))
+X
+X(defun c2-db-set-cn-sn (cn sn)
+X  "Associate with COMPILATION debugger session SESSION."
+X  (c2-set-cn-db-sn cn sn))
+X
+X(defun c2-increment-active-cns (nr)
+X  "Increment the count of active compilations by NR and update the status
+Xline accordingly."
+X  ;; called by c2-run with NR = 1 and c2-sentinel with NR = -1
+X  (setq c2-nr-active-compilations
+X	(+ nr c2-nr-active-compilations))
+X  (setq compile-mode-line-compilations
+X	(if (= 0 c2-nr-active-compilations) nil
+X	  (apply compile-mode-line-format c2-nr-active-compilations nil)))
+X  ;; Force mode-line updates
+X  (save-excursion (set-buffer (other-buffer)))
+X  (set-buffer-modified-p (buffer-modified-p))
+X  (sit-for 0))
+X
+X(defvar compile-mode-map nil
+X  "Keymap for compile-mode.")
+X
+X(if compile-mode-map
+X   nil
+X  (setq compile-mode-map (make-sparse-keymap))
+X  (define-key compile-mode-map "\C-x." 'compile-current-error)
+X  (define-key compile-mode-map "\C-c\C-i" 'compile-ignore-file)
+X  (define-key compile-mode-map "\C-c\C-u" 'compile-unparse)
+X  (define-key compile-mode-map "\C-c\C-r" 'compile-reparse)
+X  (define-key compile-mode-map "\C-c\C-c" 'c2-interrupt-process)
+X  (define-key compile-mode-map "\C-c\C-k" 'c2-kill-process))
+X
+X(defun compile-mode ()
+X  "Major mode for compilation output.  Key bindings:
+X\\{compile-mode-map}"
+X  (interactive)
+X  (use-local-map compile-mode-map)
+X  (setq major-mode 'compile-mode)
+X  (let ((cn (c2-get-buffer-cn (current-buffer))))
+X    (setq mode-name (or (and cn (c2-cn-name-of-mode cn)) "Compile")))
+X  (setq mode-line-process '(": %s"))
+X  (auto-fill-mode 0)
+X  (make-local-variable 'compile-filename-filter)
+X  (make-local-variable 'compile-dont-parse)
+X  (make-local-variable 'compile-search-dirs)
+X  (run-hooks 'compile-mode-hook))
+X
+X(put 'compile-mode 'mode-class 'special)
+X
+X(defsubst c2-expunge-preceding-deleted-errs (errs)
+X  "Expunge deleted errors between the current and preceding error."
+X  ;;
+X  ;; Delete previous as long as it's the same as current.  Assume ERRS is
+X  ;; nonempty.
+X  ;;
+X  (let ((current-marker-position
+X	 (marker-position (c2-err-cn-mrkr (hlist-current errs))))
+X	previous)
+X    (while (and (setq previous (hlist-forward -1 errs))
+X		(= (marker-position (c2-err-cn-mrkr previous))
+X		   current-marker-position))
+X      (c2-clear-error previous)
+X      (hlist-delete-current errs))
+X    
+X    ;; hlist-forward modifies hlist current position, so undo modification. 
+X    ;; Could provide new hlist-delete-previous function instead.
+X    (and previous (hlist-forward 1 errs))))
+X
+X(defsubst c2-expunge-following-deleted-errs (errs)
+X  "Expunge deleted errors between the current and next error."
+X  ;;
+X  ;; Delete current as long as it's the same as next.  Assume ERRS is
+X  ;; nonempty.
+X  ;;
+X  (let ((current-marker-position
+X	 (marker-position (c2-err-cn-mrkr (hlist-current errs))))
+X	next)
+X    (while (and (setq next (hlist-nth-hence 1 errs))
+X		(= (marker-position (c2-err-cn-mrkr next))
+X		   current-marker-position))
+X      (c2-clear-error (hlist-current errs))
+X      (hlist-delete-current errs))))
+X
+X(defun c2-next-undeleted-err (arg cn)
+X  "Return a pair whose car is the ARGth next undeleted error in COMPILATION,
+Xor the endmost error if there aren't that many errors, and whose cdr is the
+Xnumber of errors left to move."
+X  ;; Honor user deletions from compilation buffer.
+X  ;;
+X  ;; When user deletes messages from compilation buffer, the associated
+X  ;; errors' markers migrate to the beginning of the next undeleted message.
+X  ;;
+X  ;; Strictly correct behavior requires examining every error en route to the
+X  ;; target error.
+X  ;;
+X  ;; Could check for deleted messages only before and after hlist-forward,
+X  ;; with likely correct behavior most of the time; but I expect correctness
+X  ;; is worth the extra cost, which is negligible in the typical case where
+X  ;; arg is 1 or -1.
+X  
+X  (let* ((forward (if (< arg 0) nil t))
+X	 (remaining (if forward arg (- arg)))
+X	 (continue t)
+X	 (errs (c2-cn-errs cn)))
+X    
+X    (and (not (hlist-emptyp errs)) ; expunge-*-deleted-errs assume nonempty
+X	 (progn
+X	   
+X	   (while continue
+X	     (if forward
+X		 (c2-expunge-following-deleted-errs errs)
+X	       (c2-expunge-preceding-deleted-errs errs))
+X	     ;;
+X	     ;; When arg >= 0, it's important to perform the above once after
+X	     ;; remaining = 0, to discard deleted errors whose markers have
+X	     ;; moved to the error the user has targeted.
+X	     ;;
+X	     ;; It's unnecessary if arg < 0, since deleted error markers only
+X	     ;; migrate forward; but it doesn't do any harm.
+X	     ;;
+X	     (if (and (> remaining 0)
+X		      (hlist-forward (if forward 1 -1) errs))
+X		 (setq remaining (1- remaining))
+X	       (setq continue nil)))
+X	   
+X	   (let ((err (hlist-current errs)))
+X	     (and err (= (marker-position (c2-err-cn-mrkr err))
+X			 (marker-position (c2-cn-beyond-last-err cn)))
+X		  ;; User deleted the last error.
+X		  (progn (c2-expunge-preceding-deleted-errs errs)
+X			 (c2-clear-error err)
+X			 (hlist-delete-current errs)
+X			 (setq err (hlist-current errs))
+X			 (and (< remaining arg)
+X			      (setq remaining (1+ remaining)))))
+X	     
+X	     (cons err remaining))))))
+X
+X(defun c2-next-err (arg cn)
+X  "Return the ARGth next undeleted error with an associated file in
+XCOMPILATION."
+X  ;; Find files and mark buffers here rather than while parsing from filter,
+X  ;; because (1) finding and marking a series of files and buffers can be
+X  ;; obscenely time-consuming, to the point where emacs stops responding for
+X  ;; many seconds; and (2) buffer(s) on error's file(s) may have been
+X  ;; deleted.
+X  
+X  (let* ((forward (if (< arg 0) nil t))
+X	 (err-and-remaining (c2-next-undeleted-err arg cn))
+X	 (err (and err-and-remaining (car err-and-remaining)))
+X	 (requested (if forward arg (- arg)))
+X	 (remaining (and err-and-remaining (cdr err-and-remaining))))
+X    
+X    ;; Skip errors whose files the user wants to ignore.
+X    (and err
+X	 (or (< remaining requested) (= requested 0))
+X	 (not (c2-mark-err cn err))
+X	 
+X	 (let ((skipped 1)
+X	       moved)
+X	   
+X	   ;; First look in the direction ARG specifies for an err the
+X	   ;; user doesn't want to ignore.
+X	   (while
+X	       (progn (setq err-and-remaining (c2-next-undeleted-err
+X					       (if forward 1 -1) cn)
+X			    err (car err-and-remaining)
+X			    moved (= (cdr err-and-remaining) 0))
+X		      (and moved (not (c2-mark-err cn err))))
+X	     (setq skipped (1+ skipped)))
+X	   
+X	   (or moved
+X	       (progn
+X		 ;; Couldn't find unignored errors in the direction ARG
+X		 ;; specifies, so search backward from the error
+X		 ;; c2-next-undeleted-err originally returned.
+X		 
+X		 (c2-next-undeleted-err (if forward
+X					    (- (1- skipped))
+X					  (1- skipped)) cn)
+X		 (while
+X		     (progn
+X		       (setq err-and-remaining (c2-next-undeleted-err
+X						(if forward -1 1) cn)
+X			     err (car err-and-remaining)
+X			     moved (= (cdr err-and-remaining) 0)
+X			     remaining (1+ remaining))
+X		       (and moved (not (c2-mark-err cn err)))))
+X		 
+X		 (or moved (setq err nil))))))
+X    
+X    ;; If didn't make any progress in satisfying requested
+X    ;; movement, signal error by returning nil.
+X    (and err
+X	 (> requested 0)
+X	 (>= remaining requested)
+X	 (setq err nil))
+X    
+X    err))
+X
+X(defun c2-possible-err-near-point (cn set-current)
+X  "Return the possibly ignored or deleted error message nearest point in
+XCOMPILATION's buffer, making it the current message if SET-CURRENT is
+Xnon-nil."
+X  ;;
+X  ;; It's not useful to return deleted messages.  However, not returning
+X  ;; deleted errors would require save-hlist-excursion or changing
+X  ;; c2-next-undeleted-err to count from an error other than the current one.
+X  ;;
+X  ;; It is useful to return ignored messages to compile-ignore-file.
+X  ;;
+X  (save-excursion
+X    (set-buffer (c2-cn-buffer cn))
+X    (beginning-of-line)
+X    (let* ((point (point))
+X	   (errs (c2-cn-errs cn)))
+X      (or (hlist-find-sorted errs
+X			     (function (lambda (err)
+X					 (>= (c2-err-cn-mrkr err) point)))
+X			     set-current)
+X	  ;; Either there are no errs or point is beyond the last one.
+X	  (hlist-last errs set-current)))))
+X
+X(defun c2-jump-to-err-at-point ()
+X  "Jump to error message nearest point in current compilation buffer and
+Xdisplay the corresponding source code."
+X  (interactive)
+X  (let* ((cn (c2-current-cn))
+X	 (err-at-point (progn (c2-possible-err-near-point cn 'set-current)
+X			      ;; retrieve the unignored error nearest point
+X			      (c2-next-err 0 cn))))
+X    
+X    (or err-at-point (error "No error at point"))
+X    (c2-set-cn-no-errs-seen-yet cn nil)
+X    (c2-display-err cn err-at-point)))
+X
+X(defun compile-current-error (parse-current-line)
+X  "If prefix arg is nil:
+XFrom a noncompilation buffer, visit the current compilation error message and
+Xcorresponding source code; from a compilation buffer, visit the error message
+Xnearest point.  This operates on the output from the \\[compile] and \\[grep]
+Xcommands.
+X
+XIf prefix-arg is non-nil:
+XParse current line as compilation output and visit the corresponding file."
+X  (interactive "P")
+X  (cond (parse-current-line
+X	 (compile-parse-region (save-excursion (beginning-of-line) (point))
+X			       (save-excursion (forward-line 1) (point))))
+X	((c2-get-buffer-cn (current-buffer))
+X	 (c2-jump-to-err-at-point))
+X	(t (compile-next-error 0))))
+X
+X(defun compile-previous-error (arg)
+X  "Visit the ARGth previous compilation error message and corresponding
+Xsource code.  This operates on the output from the \\[compile] and \\[grep]
+Xcommands."
+X  (interactive "p")
+X  (compile-next-error (- arg)))
+X
+X(defun compile-last-error ()
+X  "Visit the last compilation error message and corresponding source code.
+XThis operates on the output from the \\[compile] and \\[grep] commands."
+X  (interactive "p")
+X  (compile-next-error c2-huge-pos-int))
+X
+X(defun compile-first-error ()
+X  "Visit the first compilation error message and corresponding source code.
+XThis operates on the output from the \\[compile] and \\[grep] commands."
+X  (interactive "p")
+X  (compile-next-error c2-huge-neg-int))
+X
+X(defun compile-next-error (arg)
+X  "Visit the ARGth next compilation error message and corresponding source
+Xcode.  This operates on the output from the \\[compile] and \\[grep]
+Xcommands."
+X  (interactive "p")
+X  (let* ((cn (c2-current-cn))
+X	 (err (if (and (c2-cn-no-errs-seen-yet cn) (= arg 0))
+X		  ;; If user has visited no errors yet, there is no current one
+X		  nil
+X		(c2-next-err (if (and (c2-cn-no-errs-seen-yet cn) (> arg 0))
+X				 ;; Pretend the current error is a null one
+X				 ;; before the beginning of the list.
+X				 (1- arg)
+X			       arg)
+X			     cn))))
+X    (or err
+X	(let ((alive (and (c2-cn-process cn)
+X			  (c2-process-is-alive (c2-cn-process cn)))))
+X	  
+X	  (and (= arg 0)
+X	       compile-display-if-none-visited
+X	       (set-window-point (c2-display-cn-window cn) 1))
+X	  
+X	  (error (cond ((hlist-emptyp (c2-cn-errs cn))
+X			(concat "No %ss" (if alive " yet" "")))
+X		       ((= arg 0)
+X			"No %ss visited yet")
+X		       ((< arg 0)
+X			"No previous %s")
+X		       (t
+X			(progn (c2-set-cn-user-aware-of-errs cn nil)
+X			       (concat "No more %ss" (if alive " yet" "")))))
+X		 (c2-cn-msg-descrip cn))))
+X    
+X    (c2-set-cn-no-errs-seen-yet cn nil)
+X    (c2-display-err cn err)
+X    (and (eq err (hlist-last (c2-cn-errs cn)))
+X	 (get-buffer-window (c2-cn-buffer cn))
+X	 ;; User presumably knows there are no more errors at the moment, so
+X	 ;; say something when more occur.
+X	 (c2-set-cn-user-aware-of-errs cn nil))))
+X
+X(defun c2-display-cn-window (cn)
+X  "Display COMPILATION's buffer in a window and return that window."
+X  ;; Window goes at the top unless buffer is already displayed elsewhere.
+X  (pop-up-command-buffer (c2-cn-buffer cn) compile-window-height-hook))
+X
+X(defun c2-display-err (cn err)
+X  "Display windows on COMPILATION at ERROR and on ERROR's source file\(s\) at
+Xthe appropriate line number\(s\)."
+X  
+X  ;; Typically, top window is compilation window, next one is buffer on first
+X  ;; error-containing file, next one is buffer on second error-containing
+X  ;; file (if any).
+X  
+X  (let ((cn-window
+X	 ;; If compilation window should be visible, ensure it is to guarantee
+X	 ;; no other functions make it visible by recycling the source buffer
+X	 ;; windows we're about to create.
+X	 (if (c2-cn-ignore-window cn)
+X	     (get-buffer-window (c2-cn-buffer cn))
+X	   (c2-display-cn-window cn))))
+X    
+X    (c2-set-cn-current-mrkr cn (c2-err-cn-mrkr err))
+X    (setq overlay-arrow-position (c2-cn-current-mrkr cn))
+X    (setq overlay-arrow-string compile-mrkr-overlay-text)
+X    (and cn-window
+X	 (progn (set-window-point cn-window (c2-cn-current-mrkr cn))
+X		(set-window-start
+X		 cn-window
+X		 (save-excursion
+X		   (set-buffer (c2-cn-buffer cn))
+X		   (goto-char (c2-cn-current-mrkr cn))
+X		   (forward-line (- compile-lines-above-current-err))
+X		   (point)))))
+X    
+X    (let ((mrkrs (c2-err-mrkrs err))
+X	  (err-windows nil))
+X      (while mrkrs
+X	(let* ((mrkr (car mrkrs))
+X	       (buf (marker-buffer mrkr))
+X	       (win (apply 'display-buffer-excluding-windows
+X			   buf 'no-minibuffer cn-window err-windows)))
+X	  (set-window-point win mrkr)
+X	  (setq err-windows (cons win err-windows))
+X	  (setq mrkrs (cdr mrkrs))))
+X      
+X      (select-window (car (nreverse err-windows))))))
+X
+X(defun c2-expunge-killed-cns ()
+X  "Forget about all killed compilations."
+X  (let ((found-killed nil))
+X    (hlist-delete
+X     c2-cns
+X     (function
+X      (lambda (cn)
+X	(let ((buffer (c2-cn-buffer cn)))
+X	  (and (c2-buffer-killed-p buffer)
+X	       (progn (setq found-killed t)
+X		      (c2-clear-errors cn)
+X		      ;; Killing buffer may leave process in 'run' state
+X		      (and (c2-cn-process cn)
+X			   (delete-process (c2-cn-process cn)))
+X		      (c2-map-delete c2-buffer-to-cn-map buffer)
+X		      ;; tell hlist-delete to remove this compilation
+X		      t))))))
+X    (and found-killed
+X	 (c2-garbage-collect))))
+X
+X(defun c2-expunge-buffer-to-ferrlists-map ()
+X  "Remove from c2-buffer-to-ferrlists-map associations from killed buffers or
+Xto empty lists."
+X  (let ((bufs nil))
+X    (c2-map-map (function (lambda (buf ferrlists)
+X			    (and (or (c2-buffer-killed-p buf)
+X				     (hlist-emptyp ferrlists))
+X				 (setq bufs (cons buf bufs)))))
+X		c2-buffer-to-ferrlists-map)
+X    (mapcar (function (lambda (buf)
+X			(c2-map-delete c2-buffer-to-ferrlists-map buf)))
+X	    bufs)))
+X
+X(defun c2-garbage-collect ()
+X  "Unreference useless pointers accessible from global tables to objects like
+Xkilled buffers so the Emacs garbage collector can reuse their memory.  Should
+Xbe called regularly but infrequently."
+X  (c2-expunge-global-buf-cache)
+X  (c2-expunge-buffer-to-ferrlists-map))
+X
+X;; Maintain compatibility with names from:
+X;;  - Emacs 18 compile.el,
+X(fset 'kill-compilation 'compile-kill-compilation)
+X(fset 'next-error 'compile-next-error)
+X;;  - Emacs 19 compile.el,
+X(fset 'compile-internal 'compile1)
+X;;  - and compile2 version 1.
+X(fset 'previous-error 'compile-previous-error)
+X(fset 'current-error 'compile-current-error)
+X
+X(eval-and-compile
+X (defun c2-debug-log (message &optional data)
+X   "Insert MESSAGE and optional DATA at end of compile2 debug log buffer."
+X    (save-excursion
+X      (set-buffer (get-buffer-create "*c2-debug-log*"))
+X      (goto-char (point-max))
+X      (insert "<<" message (if data (concat ": " data) "") ">>")
+X      (let ((window (get-buffer-window (current-buffer))))
+X	(and window
+X	     (set-window-point window (point)))))))
+X
+X;;; Remaining functions incorporated from wolfgang@wsrc2.com (Wolfgang S.
+X;;; Rupprecht)'s mult-compile.el package.
+X
+X(defun c2-test-parse ()
+X  "Attempt to parse text at point as an error message.  If successful,
+Xdisplay the number of the matching rule and the matched filenames and line
+Xnumbers."
+X  (interactive)
+X  (let ((parsed (c2-parse-line)))
+X    (or parsed
+X	(error "No matching rule"))
+X    ;; Determine which rule matched here rather than modifying and slowing
+X    ;; down c2-parse-line.
+X    (let ((rule-nr 0)
+X	  (matching-rule-nr nil))
+X      (mapcar '(lambda (rule)
+X		 (and (looking-at (car rule))
+X		      (not matching-rule-nr)
+X		      (setq matching-rule-nr rule-nr))
+X		 (setq rule-nr (1+ rule-nr)))
+X	      compile-error-parse-regexps)
+X      (message "Matched rule %d: %s" matching-rule-nr
+X	       (prin1-to-string parsed)))))
+X
+X(defun c2-parse-line ()
+X  "Parse this line, returning a pair of lists whose car is a list of names of
+Xfiles and cdr is a list of line numbers in those files."
+X  (let* ((parse-list compile-error-parse-regexps)
+X	 (not-done parse-list)
+X	 (parsed nil))
+X    
+X    (while not-done
+X      (let ((rule (car parse-list)))
+X        (if (looking-at (car rule))
+X            (let* ((file-index (nth 1 rule))
+X		   (line-index (nth 2 rule))
+X		   (file-2-index (nth 3 rule))
+X		   (line-2-index (nth 4 rule))
+X		   line1 line2 file1 file2)
+X	      (setq line1 (string-to-int
+X			   (buffer-substring (match-beginning line-index)
+X					     (match-end line-index))))
+X	      (and file-2-index
+X		   (progn
+X		     (setq file2 (buffer-substring
+X				      (match-beginning file-2-index)
+X				      (match-end file-2-index)))
+X		     (setq line2 (string-to-int
+X				  (buffer-substring
+X				   (match-beginning line-2-index)
+X				   (match-end line-2-index))))))
+X              (setq file1
+X                    (cond ((integerp file-index)
+X                           (buffer-substring (match-beginning file-index)
+X                                             (match-end file-index)))
+X                          ;; careful! this next funcall may mash the
+X                          ;; match-data, so it must be done after all the
+X                          ;; line numbers and names have been extracted
+X                          ((symbolp file-index) (funcall file-index))
+X                          ((stringp file-index) file-index)
+X                          (t (error "Parsing error: unknown action type: %s"
+X                                    file-index))))
+X	      (setq not-done nil)
+X	      (setq parsed (cons (cons file1
+X				       (and file2 (list file2)))
+X				 (cons line1 (and line2 (list line2))))))
+X	  
+X	  (setq parse-list (cdr parse-list))
+X	  (setq not-done parse-list))))
+X    parsed))
+X
+X(defun scan-make ()
+X  "Attempt to find the name of the Makefile used by this make run.  This
+Xroutine shouldn't be used for anything drastic, since it just isn't that
+Xrobust."
+X  (cond ((save-excursion
+X           (re-search-backward "make[^\n]+-f[ \t]+\\(\\sw\\|\\s_\\)+" nil t))
+X         (buffer-substring (match-beginning 1)(match-end 1)))
+X        ((file-exists-p "makefile") "makefile")
+X        ((file-exists-p "Makefile") "Makefile")
+X        (t nil)
+X      ))
+X
+X(defun scan-s5lint ()
+X  "Attempt to find the name of the file that lint was griping about on this
+Xline.  This routine also has the side-effect of modifying the current buffer.
+XThe current line will have the first gripe of a multi-gripe line broken off
+Xonto a separate line."
+X  (let (retval)
+X    (if (save-excursion
+X          (re-search-backward "^\\(\\sw\\|\\s_\\|\\s.\\)+\n======+$" nil t))
+X        (progn
+X          (setq retval (buffer-substring (match-beginning 1)(match-end 1)))
+X          (save-excursion
+X            (if (re-search-forward ")[ \t]*("
+X                                   (save-excursion (end-of-line) (point)) t)
+X                (replace-match ")\n(")))))
+X  retval))
+X
+X(provide 'compile)
+X(provide 'compile2)
+END_OF_FILE
+if test 80386 -ne `wc -c <'compile2.el'`; then
+    echo shar: \"'compile2.el'\" unpacked with wrong size!
+fi
+# end of 'compile2.el'
+fi
+echo shar: End of archive 2 \(of 2\).
+cp /dev/null ark2isdone
+MISSING=""
+for I in 1 2 ; do
+    if test ! -f ark${I}isdone ; then
+	MISSING="${MISSING} ${I}"
+    fi
+done
+if test "${MISSING}" = "" ; then
+    echo You have unpacked both archives.
+    rm -f ark[1-9]isdone
+else
+    echo You still need to unpack the following archives:
+    echo "        " ${MISSING}
+fi
+##  End of shell archive.
+exit 0

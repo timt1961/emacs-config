@@ -1,0 +1,156 @@
+;;-*-emacs-lisp-*-
+
+(setq tdy-intro "
+                                Traveler
+
+You remember only that there was a sudden blaze of light and sound.  It
+was after that brief moment that your consciousness returned.
+
+You find yourself standing in a location that feels utterly incongruous
+with anything you've known before.  When you reach into your memory to
+find out what that disconcerting feeling might be, you find to your
+horror that there is absolutely nothing there!  No memories of home,
+identity, history, self...  No real proof, even, of your own existence;
+except the deceptively obvious fact of thinking.
+
+As you pull yourself together and examine your surroundings, you can
+make nothing of it.  There is no feeling of familiarity, or place.  It's
+simply little more than it appears to be.
+")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(tdy-object "me" '(
+
+t:fdesc "There is something not quite describable about yourself, as if
+you just didn't fit into the current milieu; as if you weren't
+appropriate to this time and place; as if you had come from a realm
+beyond it.  At least, you *did* come from a realm beyond, as far as your
+memory is concerned."))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar trav-afm-desc "There is nothing around you but the howling of
+the wind, and the biting chill of wintry-thin air.")
+(defvar trav-afm-after "  You see an windy, but usable path leading
+downward.")
+
+(tdy-place "A Forlorn Mountaintop" '(
+
+t:contents ("me")
+
+t:sdesc "The wind blows coldly here: the air seeming almost as thin as
+space itself."
+
+t:fdesc (concat trav-afm-desc "  How you got here, there is no telling.
+You don't seem overly fatigued, and you certainly aren't dressed for the
+weather.  You feel physically fit, and not unusually tired for this time
+of day.  Strange, but there is only way out of this place: down.  Did
+you come from that way?  You simply cannot recall.")))
+
+(tdy-event "A Forlorn Mountaintop"
+  '(((t:seen 't)
+     (lambda (loc from to)
+       (tdy-change loc 't:fdesc
+                   (concat trav-afm-desc
+                           trav-afm-after))))
+    ))
+
+(tdy-connect
+ '(("A Forlorn Mountaintop" "d" "Base of the Mountain" "u")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(tdy-place "Base of the Mountain" '(
+
+t:sdesc "The wind is not so furious here, and the air is richer, but it
+is nonetheless devoid of anything familiar -- or unfamiliar."
+
+t:fdesc "You look around, and see only rock.  The altitude must not be
+very high, though, since there is no snow.
+    You see a windy trail leading back up the mountain, and two paths:
+one going further down to the west, and another mountainous trail to the
+south."))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(setq tdy-prepositions
+  '(
+    "above"
+    "after"
+    "before"
+    "behind"
+    "below"
+    "beside"
+    "by"
+    "down"
+    "for"
+    "from"
+    "in front of"
+    "inside"
+    "off"
+    "on behalf of"
+    "on top of"
+    "on"
+    "outside"
+    "through"
+    "to"
+    "toward"
+    "up"
+    "with"
+    "within"
+    "without"
+    ))
+
+(setq trav-directions
+      '("n"  "north"
+        "ne" "northeast"
+        "nw" "northwest"
+        "s"  "south"
+        "se" "southeast"
+        "sw" "southwest"
+        "e"  "east"
+        "w"  "west"))
+
+(setq tdy-errors
+      (append
+       '(
+         (invaldir .
+"You can only move in the eight basic directions, or up and down.")
+         )
+       tdy-errors))
+
+(setq tdy-grammar
+  '(
+
+    ;; These are fairly standard commands, and should probably exist in
+    ;; every game (though the language might be different).
+
+    ("look"             vi (lambda ()
+                             (tdy-describe
+                              (tdy-location tdy-self))))
+
+    ("quit"             vi (lambda () (setq tdy-self nil)))
+    (("look" "look at") vt (lambda (obj) (tdy-describe obj)))
+    ("reload"           vi (lambda () (tragedy "traveler.tdy")))
+
+    ("go"               vp (lambda (dir)
+                             (if (or (> (length dir) 1)
+                                     (not (member (car dir) trav-directions)))
+                                 (tdy-err nil 'invaldir)
+                               (tdy-move tdy-self (car dir)))))
+
+    (("n" "north")      vi (lambda () (tdy-move tdy-self "n")))
+    (("ne" "northeast") vi (lambda () (tdy-move tdy-self "ne")))
+    (("nw" "northwest") vi (lambda () (tdy-move tdy-self "nw")))
+    (("s" "south")      vi (lambda () (tdy-move tdy-self "s")))
+    (("se" "southeast") vi (lambda () (tdy-move tdy-self "se")))
+    (("sw" "southwest") vi (lambda () (tdy-move tdy-self "sw")))
+    (("e" "east")       vi (lambda () (tdy-move tdy-self "e")))
+    (("w" "west")       vi (lambda () (tdy-move tdy-self "w")))
+    (("u" "up")         vi (lambda () (tdy-move tdy-self "u")))
+    (("d" "down")       vi (lambda () (tdy-move tdy-self "d")))))
+
+(setq tdy-self "me")         ; how could it be otherwise? :)
+.
+

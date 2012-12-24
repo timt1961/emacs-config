@@ -1,0 +1,352 @@
+----------------------------8<------------------------------------------------
+README for vhdl-mode.el
+Rod Whitby <rwhitby@research.canon.oz.au>
+[Based on the README for cc-mode by Barry Warsaw]
+$Date: 1994/11/29 23:18:06 $
+
+Note, you can browse this file either as a flat, multiple page file,
+or as an Emacs outline.  As a flat file, just use "C-x ]" to move
+forward one page, or "C-x [" to move backward one page.  To read this
+as an outline, hit "M-x outline-mode RET".  outline-mode is described
+in your Emacs documentation.
+
+
+* Introduction
+
+    Welcome to vhdl-mode, version 2.  This is an Emacs Lisp mode for
+    editing VHDL in GNU Emacs.  This mode is decendent from
+    vhdl-mode.el version 1 (which I have been maintaining since 1992)
+    and cc-mode.el version 4 (the leading C indentation mode written
+    by Barry Warsaw).
+
+    In lieu of a texinfo manual (which is in the works -- volunteers
+    are desperately sought!), this file will describe the following:
+
+    	* how to get started using vhdl-mode
+	* how to customize the new indentation engine
+
+
+* Getting Started
+
+    vhdl-mode.el works well with the 2 main branches of Emacs 19,
+    XEmacs (former Lucid Emacs) and the Emacs 19 maintained by the
+    FSF.  FSF's Emacs 19 users will want to use Emacs version 19.21 or
+    better, XEmacs/Lucid users will want 19.6 or better.  vhdl-mode.el
+    is no longer supported under Emacs 18 and it is highly recommended
+    that you upgrade to Emacs 19.  If you use vhdl-mode under Emacs
+    18, you're on your own.
+
+    The first thing you want to do is put vhdl-mode.el somewhere on your
+    load-path where Emacs can find it.  Do a "C-h v load-path" to see
+    all the directories Emacs looks at when loading a file.  If none
+    of these directories are appropriate, create a new directory and
+    add it to your load-path:
+
+    	[in the shell]
+	% cd
+	% mkdir mylisp
+	% mv vhdl-mode.el mylisp
+	% cd mylisp
+
+	[in your .emacs file add]
+	(setq load-path (cons "~/mylisp" load-path))
+
+    Next you want to byte-compile vhdl-mode.el.  The mode uses a lot of
+    macros so if you don't byte-compile it, things will be unbearably
+    slow.  YOU CAN IGNORE ALL BYTE-COMPILER WARNINGS!  They are the
+    result of the multi-Emacs support and none of the warnings have
+    any effect on operation. Let me say this again: YOU REALLY CAN
+    IGNORE ALL BYTE-COMPILER WARNINGS!
+
+    Here's what to do to byte-comple the file [in emacs]:
+
+	M-x byte-compile-file RET ~/mylisp/vhdl-mode.el RET
+
+    You will want to add the following autoload to your .emacs file so
+    that vhdl-mode gets loaded at the right time:
+
+    	(autoload 'vhdl-mode "vhdl-mode" "VHDL Editing Mode" t)
+
+    Next, you will want to set up Emacs so that it edits VHDL files in
+    vhdl-mode.  All users should add the following to your .emacs file
+    after the autoload line above.  Note that this assumes you'll be
+    editing .vhdl, .vhd and .hdl files as VHDL. Your mileage may vary:
+
+	(setq auto-mode-alist
+	  (append '(("\\.vhdl$" . vhdl-mode)
+		    ("\\.vhd$"  . vhdl-mode)
+		    ("\\.hdl$"  . vhdl-mode)
+		   ) auto-mode-alist))
+
+    That's all you need. After you've done all this, you should quit
+    and restart Emacs.  The next time you visit a VHDL file you should
+    be using vhdl-mode.  You can check this easily by hitting "C-c
+    C-v" in the vhdl-mode buffer.  You should see this message in the
+    echo area:
+
+    	Using vhdl-mode version 2.x
+
+
+* New indentation engine
+
+    vhdl-mode has a new indentation engine, providing a simplified, yet
+    flexible and general mechanism for customizing indentation. It
+    breaks indentation calculation into two steps. First it tries to
+    figure out what kind of language construct its looking at, then it
+    applies a user defined offset to the current line based on the
+    type of construct it finds.
+
+    This section will briefly cover how indentation is calculated in
+    vhdl-mode. Only enough detail will be given so that you will know
+    how to customize indentation.  Plenty of examples will be given to
+    help you stylize your code, but more detailed examples will be
+    left to the texinfo manual (when it is complete) and your own
+    exploration.  You can also contact the help address given below.
+
+** Step 1: Syntactic Analysis
+
+    In the first step, vhdl-mode looks at the line you are currently
+    indenting and tries to determine the syntactic components of the
+    construct on that line.  vhdl-mode builds a list of these
+    syntactic components, where each component on the list contains a
+    "syntactic symbol" and a relative buffer position.  Syntactic
+    symbols describe elements of VHDL code such as `statement',
+    `comment, `block-open', `block-close', etc.  You can do a "C-h v
+    vhdl-offsets-alist" to see the entire list of support syntactic
+    symbols along with a description of the constructs they represent.
+
+    Conceptually, a line of VHDL code is always indented relative to
+    the indentation of some line higher up in the buffer.  This is
+    represented by the relative buffer positions in the syntactic
+    component list.
+
+    Here's an example. Suppose we had the following code in a vhdl-mode
+    buffer (the line numbers don't actually appear in the buffer):
+
+  Example 1:
+
+    1: inverter : process
+    2: begin
+    3:   q <= not d;
+    4:   wait on d;
+    5: end inverter;
+
+    We can use the command C-c C-s (vhdl-show-syntactic-information)
+    to simply report what syntactic analysis is for a line.  If we hit
+    C-c C-s on line 4, we'd see in the echo area:
+
+        ((statement . 28))
+
+    This tells us that the line is a statement and it is indented
+    relative to buffer position 28, which happens to be the `q' on
+    line 3.  If you were to move point to line 3 and hit C-c C-s, you
+    would see:
+
+    	((statement-block-intro . 20))
+
+    This indicates that line 3 is the first statement in a block, and
+    is indented relative to buffer position 20, which is the `b' in
+    the "begin" keyword on line 2.
+
+    Syntactic analysis lists can contain more than one element
+    (i.e. cons cell), and syntactic symbols need not have relative
+    buffer positions.
+
+** Step 2: Indentation Calculation
+
+    Indentation for the current line is calculated using the list of
+    syntactic components derived in step 1 above.  Each component
+    contributes to the final total indentation of the line in two
+    ways.
+
+    First, the syntactic symbol is looked up in the vhdl-offsets-alist
+    variable, which is an association list of syntactic symbols and
+    the offsets to apply for those symbols.  This offset is added to
+    the running total.
+
+    Second, if the component has a relative buffer position, vhdl-mode
+    adds the column number of that position to the running total.  By
+    adding up the offsets and columns for every syntactic component on
+    the list, the final total indentation for the current line is
+    computed.
+
+    Lets use our code example above to see how this works.  Just as a
+    reminder and a convenience the code is presented again here.
+
+  Example 1:
+
+    1: inverter : process
+    2: begin
+    3:   q <= not d;
+    4:   wait on d;
+    5: end inverter;
+
+    Lets say point is on line 3 and we hit the TAB key to re-indent
+    the line.  Remember that the syntactic component list for that
+    line is:
+
+    	((statement-block-intro . 20))
+
+    So first vhdl-mode is going to look up `statement-block-intro' in
+    the vhdl-offsets-alist variable.  Lets say it find the integer `2';
+    it adds this to the running total (initialized to zero), yielding
+    a running total indentation of 2 spaces.
+
+    Next vhdl-mode goes to buffer position 20 and asks for the current
+    column.  Since the "begin" keyword at buffer position 20 is in
+    column zero, it adds 0 to the running total, and since there is
+    only one syntactic component on the list for this line, the total
+    indentation for the line is 2 spaces.
+
+    Simple, huh?
+
+    Actually, the mode usually just does The Right Thing without you
+    having to think about it in this much detail.  But when
+    customizing indentation, its good to have a general idea of the
+    indentation model being used.
+
+
+* Customizing Indentation
+
+    The vhdl-offsets-alist variable is where you customize all your
+    indentations.  You simply need to decide what additional offset
+    you want to add for every syntactic symbol.  You can use the
+    command C-c C-o (vhdl-set-offset) as the way to set offsets, both
+    interactively and from your mode hook.  Also, you can set up
+    "styles" of indentation.  But you'll probably find that most of
+    the offsets are right for your style.
+
+    In fact, the offset values in vhdl-offsets-alist can be an
+    integer, a function or variable name, or one of the following
+    symbols: +, -, ++, or --, indicating positive or negative
+    multiples of the variable vhdl-basic-offset.  Thus if you like the
+    general indentation levels, but you use 4 spaces instead of 2
+    spaces per level, you can probably achieve your style by just
+    changing vhdl-basic-offset like so (in your .emacs file):
+
+    	(setq vhdl-basic-offset 4)
+
+    The offset value can also be a function, and this can really give
+    power users a lot of flexibility in customizing indentation.
+
+    As an example of how to customize indentation, lets change the
+    style of example 1 above from:
+
+    1: inverter : process
+    2: begin
+    3:   q <= not d;
+    4:   wait on d;
+    5: end inverter;
+
+    to:
+
+    1: inverter : process
+    2: begin
+    3:     q <= not d;
+    4:     wait on d;
+    5: end inverter;
+
+    Since line 3 is the start of the construct we want to re-indent,
+    we first move to that line and hit C-c C-s:
+
+    	((statement-block-intro . 20))
+
+    So we know want to change the `statement-block-intro' indentation.
+    To do this interactively, just hit C-c C-o.  This prompts you for
+    the syntactic symbol to change, giving you a reasonable default,
+    in this case, statement-block-intro, which is just the syntactic
+    symbol we want to change!
+
+    After you hit return vhdl-mode will then prompt you for the new
+    offset value, with the old value as the default.  Hit backspace to
+    delete the old value, then hit "++" and then return.  This moves
+    the construct another level of indentation to the right.
+
+    To check your changes quickly, just hit C-c C-q to reindent the
+    entire function.  If this does what you want, you can put the
+    following lisp in your vhdl-mode-hook (see below for an example):
+
+    	(vhdl-set-offset 'statement-block-intro '++)
+
+    You could also set up a "style" that sets this and all your
+    customizations in a convenient manner.  See the variable
+    vhdl-style-alist and the command vhdl-set-style for more
+    information, or take a look at the sample .emacs file below.
+
+
+* Frequently Asked Questions
+
+    Q. How do I re-indent the whole file?
+    A. Visit the file and hit "C-x h" to mark the whole buffer. Then
+       hit "ESC C-\" to re-indent the entire region which you've just
+       marked.
+
+    Q. How do I re-indent the entire function? ESC C-x doesn't work
+    A. ESC C-x is reserved for future Emacs use.  To re-indent the
+       entire function hit C-c C-q.
+
+    Q. How do I re-indent the current block?
+    A. First move to the brace which opens the block with "ESC C-u",
+       then re-indent that expression with "ESC C-q".
+
+    Q. Why doesn't the RET key indent the line to where the new text
+       should go after inserting the newline?
+    A. Emacs' convention is that RET just add a new line, and that LFD
+       adds a newline and indents.  You can make RET do this too by
+       adding this to your vhdl-mode-hook (see the sample .emacs
+       file below):
+
+       (define-key vhdl-mode-map "\C-m" 'newline-and-indent)
+
+       This is a very common question. :-) If you want this to be the
+       default behavior, don't lobby me, lobby RMS!
+
+    Q. I put (vhdl-set-offset 'statement-block-intro '++) in my .emacs
+       file and I get an error saying that vhdl-set-offset's function
+       definition is void.
+    A. Since vhdl-mode is autoloaded, it is typically not loaded into
+       your Emacs session by the time of the vhdl-set-offset call.
+       Instead of putting this in your top-level .emacs file, put the
+       call to vhdl-set-offset in your vhdl-mode-hook.  See the
+       sample .emacs file below for details.
+
+
+;; Sample .emacs file
+
+;; Of course there are lots of other indentation features that I
+;; haven't touched on here.  Until the texinfo is complete, you're
+;; going to have to explore these on your own.  Here's a sample .emacs
+;; file that might help you along the way.  Just hit "C-x C-p", then
+;; "ESC w" to copy this region, then paste it into your .emacs file
+;; with "C-y".  You may want to change some of the actual values.
+
+(defconst my-vhdl-style
+  '("PERSONAL"
+    (vhdl-tab-always-indent . t)
+    (vhdl-offsets-alist     . ((statement-cont . +)
+			       (comment        . 0)
+			       (arglist-intro  . +)
+			       (arglist-close  . +)))
+    (vhdl-echo-syntactic-information-p . t)
+    )
+  "My VHDL Programming Style")
+
+;; Customizations for vhdl-mode
+(defun my-vhdl-mode-hook ()
+  ;; set up for my preferred indentation style, but only do it once
+  (let ((my-style "PERSONAL"))
+    (or (assoc my-style vhdl-style-alist)
+	(setq vhdl-style-alist (cons my-vhdl-style vhdl-style-alist)))
+    (vhdl-set-style my-style))
+  ;; other customizations
+  (setq tab-width 8
+	;; this will make sure spaces are used instead of tabs
+	indent-tabs-mode nil)
+  ;; keybindings for VHDL.
+  (define-key vhdl-mode-map "\C-m" 'newline-and-indent)
+  )
+
+;; the following only works in Emacs 19
+;; Emacs 18ers can use (setq vhdl-mode-hook 'my-vhdl-mode-hook)
+(add-hook 'vhdl-mode-hook 'my-vhdl-mode-hook)
+----------------------------8<------------------------------------------------
