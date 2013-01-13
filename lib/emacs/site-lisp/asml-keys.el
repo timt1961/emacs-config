@@ -25,33 +25,45 @@
 (defun previous-error ()
   (interactive)
   (next-error -1))
-
-(global-set-key [f27]  'top-of-screen)
+;; On sun keyboard, this is home/end
+;; I prefer the current beginning-of-line/end-of-line
+;; Sun keyboard bindings
+;; (global-set-key [f27]  'beginning-of-line)
 ;; r13 = f33 = End
-(global-set-key [f33] 'bottom-of-screen)
+;;(global-set-key [f33] 'end-of-line)
+;;(global-set-key [S-f30] 'backward-word)
+;;(global-set-key [S-f32] 'forward-word)
+;; r9 = f29 = PgUp
+;;(global-set-key [f29] 'scroll-down)
+;; r15 = f35 = PgDn
+;;(global-set-key [f35] 'scroll-up)
+;; L4 = f14 = UNDO
+;;(global-set-key [f14] 'undo)
+;; r11 = f31 = num 5
+;;(global-set-key [f31] 'recenter)
+;; Left side of the keyboard
+;;(global-set-key [f16] 'copy-region-as-kill)
+;;(global-set-key [f18] 'yank)
+;;(global-set-key [f20] 'kill-region-and-unmark)
+;;(global-set-key [f19] 're-search-forward)
+;;
+;; Right side of keyboard
+;;(global-set-key [S-f35] 'forward-page)
+;;(global-set-key [S-f29] 'backward-page)
+
+
 ;; c-left, c-right, shift-left, shift-right; move by words
 (global-set-key [C-left] 'backward-word)
-(global-set-key [S-f30] 'backward-word)
 (global-set-key [C-right] 'forward-word)
-(global-set-key [S-f32] 'forward-word)
-;; r9 = f29 = PgUp
-(global-set-key [f29] 'scroll-down)
-;; r15 = f35 = PgDn
-(global-set-key [f35] 'scroll-up)
-;; L4 = f14 = UNDO
-(global-set-key [f14] 'undo)
-;; r11 = f31 = num 5
-(global-set-key [f31] 'recenter)
+
 
 ;; Not having this gets irritating after a while
 (global-set-key [S-delete] 'backward-delete-char-untabify)
 ;; ESC-space : set this to set-mark
-(global-set-key "\e " 'set-mark-command)
+(global-set-key [M- ] 'set-mark-command)
 ;;
 ;; Emacs 21 changed the following keys
-(global-set-key [home] 'beginning-of-line)
 (global-set-key [S-home] 'beginning-of-buffer)
-(global-set-key [end]  'end-of-line)
 (global-set-key [S-end] 'end-of-buffer)
 ;;
 ;; Define the standard asm key map
@@ -105,13 +117,13 @@
 (global-set-key [f10] 'call-last-kbd-macro)
 (global-set-key [S-f10] 'start-kbd-macro)
 (global-set-key [C-f10] 'end-kbd-macro)
-(global-set-key [A-f10] 'name-last-kbd-macro)
+(global-set-key [M-f10] 'name-last-kbd-macro)
 ;;
 ;; F11
 (global-set-key [f11]   'apropos)
 (global-set-key [S-f11] 'describe-bindings)
 (global-set-key [C-f11] 'info)
-(global-set-key [A-f11] 'where-is)
+(global-set-key [M-f11] 'where-is)
 ;;
 ;; F12
 (global-set-key [f12]   'save-buffer)
@@ -120,20 +132,11 @@
 (global-set-key [M-f12] 'next-error)
 ;; F12 ==
 ;;
-;; Left side of the keyboard
-(global-set-key [f16] 'copy-region-as-kill)
-(global-set-key [f18] 'yank)
-(global-set-key [f20] 'kill-region-and-unmark)
-(global-set-key [f19] 're-search-forward)
-;;
-;; Right side of keyboard
-(global-set-key [S-f35] 'forward-page)
-(global-set-key [S-f29] 'backward-page)
 ;;
 ;;
 ;; Following key assignments are very specific to my set up.
 ;;
 ;; Compatibility with Dan Lawrence's microemacs: M-g becomes goto-line
 ;;
-(global-set-key "\M-g" 'goto-line)
-(global-set-key "\M-a" 'apropos)
+(global-set-key [M-g] 'goto-line)
+(global-set-key [M-a] 'apropos)

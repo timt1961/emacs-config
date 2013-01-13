@@ -69,6 +69,7 @@ is read in, display STARTMSG at beginning of load, ENDMSG at end."
 	   (rock1 (1- arg) rock-vec))))
 
 ;;;###autoload
+
 (defun rock-snarf (phrase-file startmsg endmsg)
   "Reads in the PHRASE-FILE, returns it as a vector of strings.
 Emit STARTMSG and ENDMSG before and after.  Caches the result; second
