@@ -228,7 +228,7 @@ vi style of % jumping to matching brace."
 ;; Orgmode
 ;; Following based on tutorial 
 ;; http://orgmode.org/worg/org-tutorials/orgtutorial_dto.php
-(require 'org-install)
+(require 'org)
 (add-to-list 'auto-mode-alist '("\\.org$" . org-mode))
 (define-key global-map "\C-cl" 'org-store-link)
 (define-key global-map "\C-ca" 'org-agenda)
@@ -236,7 +236,21 @@ vi style of % jumping to matching brace."
 
 ;;
 ;; python tooling
-(load-file "~/emacs/python/epy-init.el")
-(epy-setup-checker "epylint %f")
-(epy-django-snippets)
+;;(load-file "~/emacs/python/emacs-for-python/epy-init.el")
+;;(epy-setup-checker "epylint %f")
+;;(epy-django-snippets)
 
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(ansi-color-names-vector ["#242424" "#e5786d" "#95e454" "#cae682" "#8ac6f2" "#333366" "#ccaa8f" "#f6f3e8"])
+ '(custom-enabled-themes (quote (wheatgrass)))
+ '(custom-safe-themes (quote ("dd43c9f997208c61ce0f4855932cc20a57ae2f37fe2ced218dace5c8c321d1e8" default))))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
